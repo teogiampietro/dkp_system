@@ -1,0 +1,507 @@
+@page "/events/{EventId:guid}"
+@using DkpSystem.Services
+@using DkpSystem.Models
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.ComponentModel.DataAnnotations
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject EventService EventService
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Event Detail</PageTitle>
+
+<div class="container mt-4">
+    @if (isLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (eventModel == null)
+    {
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle"></i> Event not found.
+        </div>
+    }
+    else
+    {
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1>@eventModel.Name</h1>
+                @if (!string.IsNullOrWhiteSpace(eventModel.Description))
+                {
+                    <p class="text-muted">@eventModel.Description</p>
+                }
+                <small class="text-muted">Created on @eventModel.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</small>
+            </div>
+            <div>
+                <button type="button" class="btn btn-secondary" @onclick="GoBack">
+                    <i class="bi bi-arrow-left"></i> Back to Events
+                </button>
+            </div>
+        </div>
+
+        @if (errorMessage != null)
+        {
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                @errorMessage
+                <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+            </div>
+        }
+
+        @if (successMessage != null)
+        {
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                @successMessage
+                <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+            </div>
+        }
+
+        <AuthorizeView Roles="admin">
+            <Authorized Context="adminAuth">
+                @* Admin View *@
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h4>Award History</h4>
+                            </div>
+                            <div class="card-body">
+                                @if (awardHistory == null || !awardHistory.Any())
+                                {
+                                    <p class="text-muted">No DKP has been awarded yet for this event.</p>
+                                }
+                                else
+                                {
+                                    <div class="table-responsive">
+                                        <table class="table table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th>Date</th>
+                                                    <th>Reason</th>
+                                                    <th>Type</th>
+                                                    <th>DKP</th>
+                                                    <th>Recipients</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var award in awardHistory)
+                                                {
+                                                    <tr>
+                                                        <td>@award.CreatedAt.ToLocalTime().ToString("HH:mm")</td>
+                                                        <td>@award.Reason</td>
+                                                        <td>
+                                                            <span class="badge bg-@(award.IsGroupAward ? "primary" : "info")">
+                                                                @(award.IsGroupAward ? "Group" : "Individual")
+                                                            </span>
+                                                        </td>
+                                                        <td><strong>+@award.DkpAmount</strong></td>
+                                                        <td>@award.RecipientCount</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                <h4>Confirmed Attendees</h4>
+                            </div>
+                            <div class="card-body">
+                                @if (confirmedAttendees == null || !confirmedAttendees.Any())
+                                {
+                                    <p class="text-muted">No attendees confirmed yet (no DKP awarded).</p>
+                                }
+                                else
+                                {
+                                    <div class="row">
+                                        @foreach (var attendee in confirmedAttendees)
+                                        {
+                                            <div class="col-md-4 mb-2">
+                                                <i class="bi bi-person-check"></i> @attendee.Username
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        @* Group Award Form *@
+                        <div class="card mb-3">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0">Add Group Award</h5>
+                            </div>
+                            <div class="card-body">
+                                <EditForm Model="@groupAwardModel" OnValidSubmit="HandleGroupAwardAsync">
+                                    <DataAnnotationsValidator />
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Reason <span class="text-danger">*</span></label>
+                                        <InputText class="form-control" @bind-Value="groupAwardModel.Reason" placeholder="e.g., Raid completion" />
+                                        <ValidationMessage For="@(() => groupAwardModel.Reason)" />
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">DKP Amount <span class="text-danger">*</span></label>
+                                        <InputNumber class="form-control" @bind-Value="groupAwardModel.DkpAmount" />
+                                        <ValidationMessage For="@(() => groupAwardModel.DkpAmount)" />
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">Attendees</label>
+                                        @if (availableAttendees == null || !availableAttendees.Any())
+                                        {
+                                            <p class="text-muted small">Loading attendees...</p>
+                                        }
+                                        else
+                                        {
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="selectAllGroup"
+                                                       checked="@(groupAwardModel.SelectedAttendees.Count == availableAttendees.Count())"
+                                                       @onchange="@(e => ToggleAllGroupAttendees((bool)e.Value!))" />
+                                                <label class="form-check-label fw-bold" for="selectAllGroup">
+                                                    Select All (@availableAttendees.Count())
+                                                </label>
+                                            </div>
+                                            <hr class="my-2" />
+                                            <div style="max-height: 200px; overflow-y: auto;">
+                                                @foreach (var attendee in availableAttendees)
+                                                {
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="group-@attendee.Id"
+                                                               checked="@groupAwardModel.SelectedAttendees.Contains(attendee.Id)"
+                                                               @onchange="@(e => ToggleGroupAttendee(attendee.Id, (bool)e.Value!))" />
+                                                        <label class="form-check-label" for="group-@attendee.Id">
+                                                            @attendee.Username
+                                                        </label>
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+
+                                    <button type="submit" class="btn btn-primary w-100" disabled="@isSubmittingGroupAward">
+                                        @if (isSubmittingGroupAward)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-2"></span>
+                                        }
+                                        <i class="bi bi-plus-circle"></i> Add Group Award
+                                    </button>
+                                </EditForm>
+                            </div>
+                        </div>
+
+                        @* Individual Award Form *@
+                        <div class="card">
+                            <div class="card-header bg-info text-white">
+                                <h5 class="mb-0">Add Individual Award</h5>
+                            </div>
+                            <div class="card-body">
+                                <EditForm Model="@individualAwardModel" OnValidSubmit="HandleIndividualAwardAsync">
+                                    <DataAnnotationsValidator />
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Raider <span class="text-danger">*</span></label>
+                                        <InputSelect class="form-select" @bind-Value="individualAwardModel.UserId">
+                                            <option value="">-- Select Raider --</option>
+                                            @if (availableAttendees != null)
+                                            {
+                                                @foreach (var attendee in availableAttendees)
+                                                {
+                                                    <option value="@attendee.Id">@attendee.Username</option>
+                                                }
+                                            }
+                                        </InputSelect>
+                                        <ValidationMessage For="@(() => individualAwardModel.UserId)" />
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">Reason <span class="text-danger">*</span></label>
+                                        <InputText class="form-control" @bind-Value="individualAwardModel.Reason" placeholder="e.g., First kill bonus" />
+                                        <ValidationMessage For="@(() => individualAwardModel.Reason)" />
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">DKP Amount <span class="text-danger">*</span></label>
+                                        <InputNumber class="form-control" @bind-Value="individualAwardModel.DkpAmount" />
+                                        <ValidationMessage For="@(() => individualAwardModel.DkpAmount)" />
+                                    </div>
+
+                                    <button type="submit" class="btn btn-info w-100" disabled="@isSubmittingIndividualAward">
+                                        @if (isSubmittingIndividualAward)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-2"></span>
+                                        }
+                                        <i class="bi bi-plus-circle"></i> Add Individual Award
+                                    </button>
+                                </EditForm>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </Authorized>
+            <NotAuthorized>
+                @* Raider View *@
+                <div class="card">
+                    <div class="card-header">
+                        <h4>My Earnings</h4>
+                    </div>
+                    <div class="card-body">
+                        @if (raiderEarnings == null || !raiderEarnings.Any())
+                        {
+                            <p class="text-muted">You have no earnings from this event yet.</p>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Reason</th>
+                                            <th>DKP Earned</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var earning in raiderEarnings)
+                                        {
+                                            <tr>
+                                                <td>@earning.EarnedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                                <td>@earning.Reason</td>
+                                                <td><strong class="text-success">+@earning.DkpAmount</strong></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <th colspan="2" class="text-end">Total:</th>
+                                            <th><strong class="text-success">+@raiderEarnings.Sum(e => e.DkpAmount)</strong></th>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </NotAuthorized>
+        </AuthorizeView>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid EventId { get; set; }
+
+    private Event? eventModel;
+    private IEnumerable<AwardHistoryEntry>? awardHistory;
+    private IEnumerable<User>? confirmedAttendees;
+    private IEnumerable<User>? availableAttendees;
+    private IEnumerable<RaiderEarningEntry>? raiderEarnings;
+    private bool isLoading = true;
+    private bool isSubmittingGroupAward = false;
+    private bool isSubmittingIndividualAward = false;
+    private string? errorMessage;
+    private string? successMessage;
+    private Guid currentUserId;
+    private bool isAdmin = false;
+
+    private GroupAwardFormModel groupAwardModel = new();
+    private IndividualAwardFormModel individualAwardModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            var userIdClaim = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+            if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
+            {
+                currentUserId = userId;
+            }
+
+            isAdmin = user.IsInRole("admin");
+        }
+
+        await LoadEventDataAsync();
+        isLoading = false;
+    }
+
+    private async Task LoadEventDataAsync()
+    {
+        eventModel = await EventService.GetEventByIdAsync(EventId);
+
+        if (eventModel == null)
+        {
+            return;
+        }
+
+        if (isAdmin)
+        {
+            awardHistory = await EventService.GetAwardHistoryAsync(EventId);
+            confirmedAttendees = await EventService.GetConfirmedAttendeesAsync(EventId);
+            
+            // Get available attendees - use guild from event or get all active members
+            if (eventModel.GuildId != Guid.Empty)
+            {
+                availableAttendees = await EventService.GetActiveGuildMembersAsync(eventModel.GuildId);
+            }
+            else
+            {
+                availableAttendees = await EventService.GetAllActiveMembersAsync();
+            }
+            
+            // Pre-select all attendees for group award
+            groupAwardModel.SelectedAttendees = availableAttendees.Select(a => a.Id).ToHashSet();
+        }
+        else
+        {
+            raiderEarnings = await EventService.GetRaiderEarningsAsync(EventId, currentUserId);
+        }
+    }
+
+    private void ToggleGroupAttendee(Guid userId, bool isChecked)
+    {
+        if (isChecked)
+        {
+            groupAwardModel.SelectedAttendees.Add(userId);
+        }
+        else
+        {
+            groupAwardModel.SelectedAttendees.Remove(userId);
+        }
+    }
+
+    private void ToggleAllGroupAttendees(bool isChecked)
+    {
+        if (availableAttendees == null) return;
+
+        if (isChecked)
+        {
+            groupAwardModel.SelectedAttendees = availableAttendees.Select(a => a.Id).ToHashSet();
+        }
+        else
+        {
+            groupAwardModel.SelectedAttendees.Clear();
+        }
+    }
+
+    private async Task HandleGroupAwardAsync()
+    {
+        errorMessage = null;
+        successMessage = null;
+        isSubmittingGroupAward = true;
+
+        try
+        {
+            if (!groupAwardModel.SelectedAttendees.Any())
+            {
+                errorMessage = "Please select at least one attendee.";
+                isSubmittingGroupAward = false;
+                return;
+            }
+
+            await EventService.AddGroupAwardAsync(
+                EventId,
+                groupAwardModel.Reason,
+                groupAwardModel.DkpAmount,
+                groupAwardModel.SelectedAttendees
+            );
+
+            successMessage = $"Group award of {groupAwardModel.DkpAmount} DKP added successfully to {groupAwardModel.SelectedAttendees.Count} raiders!";
+            
+            // Reset form
+            groupAwardModel = new GroupAwardFormModel
+            {
+                SelectedAttendees = availableAttendees?.Select(a => a.Id).ToHashSet() ?? new HashSet<Guid>()
+            };
+
+            // Reload data
+            await LoadEventDataAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error adding group award: {ex.Message}";
+        }
+        finally
+        {
+            isSubmittingGroupAward = false;
+        }
+    }
+
+    private async Task HandleIndividualAwardAsync()
+    {
+        errorMessage = null;
+        successMessage = null;
+        isSubmittingIndividualAward = true;
+
+        try
+        {
+            await EventService.AddIndividualAwardAsync(
+                EventId,
+                Guid.Parse(individualAwardModel.UserId),
+                individualAwardModel.Reason,
+                individualAwardModel.DkpAmount
+            );
+
+            var raiderName = availableAttendees?.FirstOrDefault(a => a.Id == Guid.Parse(individualAwardModel.UserId))?.Username ?? "Raider";
+            successMessage = $"Individual award of {individualAwardModel.DkpAmount} DKP added successfully to {raiderName}!";
+            
+            // Reset form
+            individualAwardModel = new IndividualAwardFormModel();
+
+            // Reload data
+            await LoadEventDataAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error adding individual award: {ex.Message}";
+        }
+        finally
+        {
+            isSubmittingIndividualAward = false;
+        }
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/events");
+    }
+
+    private class GroupAwardFormModel
+    {
+        [Required(ErrorMessage = "Reason is required.")]
+        [StringLength(200, ErrorMessage = "Reason cannot exceed 200 characters.")]
+        public string Reason { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "DKP amount is required.")]
+        [Range(1, 10000, ErrorMessage = "DKP amount must be between 1 and 10000.")]
+        public int DkpAmount { get; set; } = 20;
+
+        public HashSet<Guid> SelectedAttendees { get; set; } = new();
+    }
+
+    private class IndividualAwardFormModel
+    {
+        [Required(ErrorMessage = "Please select a raider.")]
+        public string UserId { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Reason is required.")]
+        [StringLength(200, ErrorMessage = "Reason cannot exceed 200 characters.")]
+        public string Reason { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "DKP amount is required.")]
+        [Range(1, 10000, ErrorMessage = "DKP amount must be between 1 and 10000.")]
+        public int DkpAmount { get; set; } = 10;
+    }
+}

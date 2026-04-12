@@ -35,20 +35,35 @@ public class DbConnectionFactory
         {
             if (_mappingConfigured) return;
 
-            // Configure custom type map for User to handle snake_case column names
-            SqlMapper.SetTypeMap(
+            // Configure custom type map for all entities to handle snake_case column names
+            var typesToMap = new[]
+            {
                 typeof(User),
-                new CustomPropertyTypeMap(
-                    typeof(User),
-                    (type, columnName) =>
-                    {
-                        // Convert snake_case to PascalCase
-                        var propertyName = string.Join("", columnName.Split('_')
-                            .Select(s => char.ToUpper(s[0]) + s.Substring(1)));
-                        return type.GetProperty(propertyName);
-                    }
-                )
-            );
+                typeof(Guild),
+                typeof(Event),
+                typeof(EventRewardLine),
+                typeof(DkpEarning),
+                typeof(Auction),
+                typeof(AuctionItem),
+                typeof(AuctionBid)
+            };
+
+            foreach (var type in typesToMap)
+            {
+                SqlMapper.SetTypeMap(
+                    type,
+                    new CustomPropertyTypeMap(
+                        type,
+                        (t, columnName) =>
+                        {
+                            // Convert snake_case to PascalCase
+                            var propertyName = string.Join("", columnName.Split('_')
+                                .Select(s => char.ToUpper(s[0]) + s.Substring(1)));
+                            return t.GetProperty(propertyName);
+                        }
+                    )
+                );
+            }
 
             _mappingConfigured = true;
         }
