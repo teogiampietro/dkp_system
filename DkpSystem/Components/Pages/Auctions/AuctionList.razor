@@ -1,0 +1,237 @@
+@page "/auctions"
+@using DkpSystem.Services
+@using DkpSystem.Models
+@using DkpSystem.Data.Repositories
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@attribute [Authorize]
+@inject AuctionService AuctionService
+@inject AuctionRepository AuctionRepository
+@inject UserRepository UserRepository
+@inject NavigationManager Navigation
+
+<PageTitle>Auctions</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Auctions</h2>
+        <AuthorizeView Roles="admin">
+            <Authorized>
+                <a href="/admin/auctions/new" class="btn btn-primary">
+                    + Create Auction
+                </a>
+            </Authorized>
+        </AuthorizeView>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            @_errorMessage
+        </div>
+    }
+    else
+    {
+        @* Open Auctions *@
+        @if (_openAuctions.Any())
+        {
+            <div class="mb-5">
+                <h3 class="mb-3">Open Auctions</h3>
+                <div class="row">
+                    @foreach (var auction in _openAuctions)
+                    {
+                        <div class="col-md-6 mb-3">
+                            <div class="card border-success">
+                                <div class="card-header bg-success text-white">
+                                    <h5 class="mb-0">@auction.Name</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-2">
+                                        <strong>Status:</strong> 
+                                        <span class="badge bg-success">OPEN</span>
+                                    </p>
+                                    <p class="mb-2">
+                                        <strong>Closes at:</strong> @auction.ClosesAt.ToLocalTime().ToString("g")
+                                    </p>
+                                    <p class="mb-2">
+                                        <strong>Items:</strong> @_auctionItemCounts.GetValueOrDefault(auction.Id, 0)
+                                    </p>
+                                    <p class="mb-3">
+                                        <strong>Bids:</strong> @_auctionBidCounts.GetValueOrDefault(auction.Id, 0)
+                                    </p>
+                                    <a href="/auctions/@auction.Id" class="btn btn-primary w-100">
+                                        View & Bid
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        @* Pending Auctions *@
+        @if (_pendingAuctions.Any())
+        {
+            <div class="mb-5">
+                <h3 class="mb-3">Pending Auctions</h3>
+                <div class="row">
+                    @foreach (var auction in _pendingAuctions)
+                    {
+                        <div class="col-md-6 mb-3">
+                            <div class="card border-warning">
+                                <div class="card-header bg-warning">
+                                    <h5 class="mb-0">@auction.Name</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-2">
+                                        <strong>Status:</strong> 
+                                        <span class="badge bg-warning text-dark">PENDING</span>
+                                    </p>
+                                    <p class="mb-2">
+                                        <strong>Items:</strong> @_auctionItemCounts.GetValueOrDefault(auction.Id, 0)
+                                    </p>
+                                    <p class="mb-3 text-muted">
+                                        Waiting for admin to start...
+                                    </p>
+                                    <a href="/auctions/@auction.Id" class="btn btn-outline-primary w-100">
+                                        View Details
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        @* Closed Auctions *@
+        @if (_closedAuctions.Any())
+        {
+            <div class="mb-5">
+                <h3 class="mb-3">Recent Closed Auctions</h3>
+                <div class="row">
+                    @foreach (var auction in _closedAuctions.Take(6))
+                    {
+                        <div class="col-md-6 mb-3">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">@auction.Name</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-2">
+                                        <strong>Status:</strong> 
+                                        <span class="badge bg-secondary">CLOSED</span>
+                                    </p>
+                                    <p class="mb-2">
+                                        <strong>Closed at:</strong> @auction.ClosedAt?.ToLocalTime().ToString("g")
+                                    </p>
+                                    <p class="mb-2">
+                                        <strong>Items:</strong> @_auctionItemCounts.GetValueOrDefault(auction.Id, 0)
+                                    </p>
+                                    <p class="mb-3">
+                                        <strong>Bids:</strong> @_auctionBidCounts.GetValueOrDefault(auction.Id, 0)
+                                    </p>
+                                    <a href="/auctions/@auction.Id" class="btn btn-outline-secondary w-100">
+                                        View Results
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+                @if (_closedAuctions.Count() > 6)
+                {
+                    <div class="text-center">
+                        <a href="/auctions/history" class="btn btn-outline-primary">
+                            View All History
+                        </a>
+                    </div>
+                }
+            </div>
+        }
+
+        @if (!_openAuctions.Any() && !_pendingAuctions.Any() && !_closedAuctions.Any())
+        {
+            <div class="alert alert-info" role="alert">
+                <h4 class="alert-heading">No auctions yet</h4>
+                <p>There are no auctions in the system.</p>
+                <AuthorizeView Roles="admin">
+                    <Authorized>
+                        <hr>
+                        <p class="mb-0">
+                            <a href="/admin/auctions/new" class="btn btn-primary">Create the first auction</a>
+                        </p>
+                    </Authorized>
+                </AuthorizeView>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private List<Auction> _openAuctions = new();
+    private List<Auction> _pendingAuctions = new();
+    private List<Auction> _closedAuctions = new();
+    private Dictionary<Guid, int> _auctionItemCounts = new();
+    private Dictionary<Guid, int> _auctionBidCounts = new();
+    private bool _isLoading = true;
+    private string _errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Get current user
+            var authState = await AuthenticationStateTask!;
+            var userIdClaim = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            {
+                _errorMessage = "Unable to identify current user.";
+                return;
+            }
+
+            // Get user's guild
+            var user = await UserRepository.FindByIdAsync(userId);
+            if (user == null || user.GuildId == null)
+            {
+                _errorMessage = "You must be assigned to a guild to view auctions.";
+                return;
+            }
+
+            // Load all auctions
+            var allAuctions = await AuctionService.GetAuctionsByGuildAsync(user.GuildId.Value);
+
+            _openAuctions = allAuctions.Where(a => a.Status == "open").OrderByDescending(a => a.CreatedAt).ToList();
+            _pendingAuctions = allAuctions.Where(a => a.Status == "pending").OrderByDescending(a => a.CreatedAt).ToList();
+            _closedAuctions = allAuctions.Where(a => a.Status == "closed").OrderByDescending(a => a.ClosedAt).ToList();
+
+            // Load item and bid counts for all auctions
+            foreach (var auction in allAuctions)
+            {
+                _auctionItemCounts[auction.Id] = await AuctionRepository.GetAuctionItemCountAsync(auction.Id);
+                _auctionBidCounts[auction.Id] = await AuctionRepository.GetAuctionBidCountAsync(auction.Id);
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}

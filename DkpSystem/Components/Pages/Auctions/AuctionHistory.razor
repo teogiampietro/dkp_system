@@ -1,0 +1,139 @@
+@page "/auctions/history"
+@using DkpSystem.Services
+@using DkpSystem.Models
+@using DkpSystem.Data.Repositories
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@attribute [Authorize]
+@inject AuctionService AuctionService
+@inject AuctionRepository AuctionRepository
+@inject UserRepository UserRepository
+@inject NavigationManager Navigation
+
+<PageTitle>Auction History</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Auction History</h2>
+        <a href="/auctions" class="btn btn-outline-secondary">
+            ← Back to Auctions
+        </a>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            @_errorMessage
+        </div>
+    }
+    else if (!_closedAuctions.Any())
+    {
+        <div class="alert alert-info" role="alert">
+            <h4 class="alert-heading">No auction history</h4>
+            <p>There are no closed auctions yet.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Auction Name</th>
+                        <th>Closed At</th>
+                        <th>Items</th>
+                        <th>Total Bids</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var auction in _closedAuctions)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@auction.Name</strong>
+                            </td>
+                            <td>
+                                @auction.ClosedAt?.ToLocalTime().ToString("g")
+                            </td>
+                            <td>
+                                @_auctionItemCounts.GetValueOrDefault(auction.Id, 0)
+                            </td>
+                            <td>
+                                @_auctionBidCounts.GetValueOrDefault(auction.Id, 0)
+                            </td>
+                            <td>
+                                <a href="/auctions/@auction.Id" class="btn btn-sm btn-outline-primary">
+                                    View Results
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private List<Auction> _closedAuctions = new();
+    private Dictionary<Guid, int> _auctionItemCounts = new();
+    private Dictionary<Guid, int> _auctionBidCounts = new();
+    private bool _isLoading = true;
+    private string _errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Get current user
+            var authState = await AuthenticationStateTask!;
+            var userIdClaim = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            {
+                _errorMessage = "Unable to identify current user.";
+                return;
+            }
+
+            // Get user's guild
+            var user = await UserRepository.FindByIdAsync(userId);
+            if (user == null || user.GuildId == null)
+            {
+                _errorMessage = "You must be assigned to a guild to view auction history.";
+                return;
+            }
+
+            // Load closed auctions
+            _closedAuctions = (await AuctionService.GetClosedAuctionsAsync(user.GuildId.Value))
+                .OrderByDescending(a => a.ClosedAt)
+                .ToList();
+
+            // Load item and bid counts
+            foreach (var auction in _closedAuctions)
+            {
+                _auctionItemCounts[auction.Id] = await AuctionRepository.GetAuctionItemCountAsync(auction.Id);
+                _auctionBidCounts[auction.Id] = await AuctionRepository.GetAuctionBidCountAsync(auction.Id);
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}

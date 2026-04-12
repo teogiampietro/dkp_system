@@ -27,6 +27,8 @@ builder.Services.AddSingleton(new DbConnectionFactory(connectionString));
 builder.Services.AddScoped<UserRepository>();
 builder.Services.AddScoped<MemberRepository>();
 builder.Services.AddScoped<EventRepository>();
+builder.Services.AddScoped<AuctionRepository>();
+builder.Services.AddScoped<BidRepository>();
 
 // Register custom Identity store
 builder.Services.AddScoped<IUserStore<User>, DapperUserStore>();
@@ -77,6 +79,7 @@ builder.Services.AddScoped<AuthenticationStateProvider, ServerAuthenticationStat
 builder.Services.AddScoped<AuthenticationService>();
 builder.Services.AddScoped<MemberService>();
 builder.Services.AddScoped<EventService>();
+builder.Services.AddScoped<AuctionService>();
 
 // Add authorization
 builder.Services.AddAuthorization(options =>

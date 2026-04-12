@@ -1,0 +1,654 @@
+@page "/auctions/{AuctionId:guid}"
+@using DkpSystem.Services
+@using DkpSystem.Models
+@using DkpSystem.Data
+@using DkpSystem.Data.Repositories
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@using Dapper
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject AuctionService AuctionService
+@inject AuctionRepository AuctionRepository
+@inject BidRepository BidRepository
+@inject UserRepository UserRepository
+@inject DbConnectionFactory DbConnectionFactory
+@inject NavigationManager Navigation
+
+<PageTitle>@(_auction?.Name ?? "Auction")</PageTitle>
+
+<div class="container mt-4">
+    @if (_isLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            @_errorMessage
+        </div>
+        <a href="/auctions" class="btn btn-outline-secondary">← Back to Auctions</a>
+    }
+    else if (_auction != null)
+    {
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>@_auction.Name</h2>
+            <a href="/auctions" class="btn btn-outline-secondary">
+                ← Back to Auctions
+            </a>
+        </div>
+
+        @* Status and Info Card *@
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <strong>Status:</strong>
+                        @if (_auction.Status == "open")
+                        {
+                            <span class="badge bg-success">OPEN</span>
+                        }
+                        else if (_auction.Status == "pending")
+                        {
+                            <span class="badge bg-warning text-dark">PENDING</span>
+                        }
+                        else if (_auction.Status == "closed")
+                        {
+                            <span class="badge bg-secondary">CLOSED</span>
+                        }
+                        else if (_auction.Status == "cancelled")
+                        {
+                            <span class="badge bg-danger">CANCELLED</span>
+                        }
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Closes at:</strong> @_auction.ClosesAt.ToLocalTime().ToString("g")
+                    </div>
+                    @if (_auction.ClosedAt.HasValue)
+                    {
+                        <div class="col-md-3">
+                            <strong>Closed at:</strong> @_auction.ClosedAt.Value.ToLocalTime().ToString("g")
+                        </div>
+                    }
+                    @if (_auction.Status == "open" && _currentUser != null)
+                    {
+                        <div class="col-md-3">
+                            <strong>Your Balance:</strong> @_currentUser.DkpBalance DKP
+                        </div>
+                    }
+                </div>
+
+                @* Time warning for open auctions *@
+                @if (_auction.Status == "open" && DateTime.UtcNow >= _auction.ClosesAt)
+                {
+                    <div class="alert alert-warning mt-3 mb-0" role="alert">
+                        ⏰ <strong>Time window has elapsed!</strong> Waiting for admin to close the auction.
+                    </div>
+                }
+
+                @* Admin Controls *@
+                <AuthorizeView Roles="admin">
+                    <Authorized>
+                        <hr />
+                        <div class="d-flex gap-2">
+                            @if (_auction.Status == "pending" || _auction.Status == "cancelled")
+                            {
+                                <button class="btn btn-success" @onclick="StartAuction" disabled="@_isProcessing">
+                                    Start Auction
+                                </button>
+                            }
+                            @if (_auction.Status == "open")
+                            {
+                                <button class="btn btn-warning" @onclick="CloseAuction" disabled="@_isProcessing">
+                                    Close Auction
+                                </button>
+                            }
+                            @if (_auction.Status != "closed")
+                            {
+                                <button class="btn btn-danger" @onclick="CancelAuction" disabled="@_isProcessing">
+                                    Cancel Auction
+                                </button>
+                            }
+                        </div>
+                    </Authorized>
+                </AuthorizeView>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_actionMessage))
+        {
+            <div class="alert alert-info" role="alert">
+                @_actionMessage
+            </div>
+        }
+
+        @* Items List *@
+        <h3 class="mb-3">Items</h3>
+
+        @if (!_items.Any())
+        {
+            <div class="alert alert-info" role="alert">
+                No items in this auction.
+            </div>
+        }
+        else
+        {
+            @foreach (var item in _items)
+            {
+                var itemBids = _itemBids.GetValueOrDefault(item.Id, new List<BidWithUser>());
+                var userBid = _userBids.GetValueOrDefault(item.Id);
+                var highestBid = itemBids.FirstOrDefault();
+
+                <div class="card mb-3">
+                    <div class="card-header @(item.Delivered ? "bg-light" : "")">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">@item.Name</h5>
+                            @if (item.Delivered)
+                            {
+                                <span class="badge bg-success">DELIVERED</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-2">
+                            <strong>Minimum Bid:</strong> @item.MinimumBid DKP
+                        </p>
+
+                        @* Show delivered info *@
+                        @if (item.Delivered && item.WinnerId.HasValue)
+                        {
+                            var winner = _users.GetValueOrDefault(item.WinnerId.Value);
+                            <div class="alert alert-success mb-3">
+                                <strong>Winner:</strong> @(winner?.Username ?? "Unknown") | 
+                                <strong>Price:</strong> @item.FinalPrice DKP
+                            </div>
+                        }
+
+                        @* Bidding interface for open auctions *@
+                        @if (_auction.Status == "open" && !item.Delivered)
+                        {
+                            <div class="border-top pt-3 mt-3">
+                                <h6>Place Your Bid</h6>
+                                @if (userBid != null)
+                                {
+                                    <div class="alert alert-info">
+                                        <strong>Your current bid:</strong> @userBid.Amount DKP (@userBid.BidType)
+                                    </div>
+                                }
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <input type="number" class="form-control" 
+                                               @bind="_bidAmounts[item.Id]" 
+                                               min="@item.MinimumBid" 
+                                               placeholder="Amount" />
+                                    </div>
+                                    <div class="col-md-3">
+                                        <select class="form-select" @bind="_bidTypes[item.Id]">
+                                            <option value="main">Main</option>
+                                            <option value="alt">Alt</option>
+                                            <option value="greed">Greed</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-5">
+                                        <button class="btn btn-primary me-2" 
+                                                @onclick="() => PlaceBid(item.Id)" 
+                                                disabled="@_isProcessing">
+                                            @(userBid != null ? "Update Bid" : "Place Bid")
+                                        </button>
+                                        @if (userBid != null)
+                                        {
+                                            <button class="btn btn-outline-danger" 
+                                                    @onclick="() => RetractBid(item.Id)" 
+                                                    disabled="@_isProcessing">
+                                                Retract
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                                @if (_currentUser != null)
+                                {
+                                    <small class="text-muted d-block mt-2">
+                                        Total active bids: @_totalActiveBids DKP / @_currentUser.DkpBalance DKP available
+                                    </small>
+                                }
+                            </div>
+                        }
+
+                        @* Show bids for closed auctions or admin view *@
+                        @if (_auction.Status == "closed" || (_isAdmin && _auction.Status == "open"))
+                        {
+                            <div class="border-top pt-3 mt-3">
+                                <h6>Bids (@itemBids.Count)</h6>
+                                @if (!itemBids.Any())
+                                {
+                                    <p class="text-muted">No bids placed</p>
+                                    @if (_auction.Status == "closed")
+                                    {
+                                        <span class="badge bg-secondary">Unclaimed</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <div class="table-responsive">
+                                        <table class="table table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th>Rank</th>
+                                                    <th>Bidder</th>
+                                                    <th>Amount</th>
+                                                    <th>Type</th>
+                                                    @if (itemBids.Any(b => b.DieRoll > 0))
+                                                    {
+                                                        <th>Die Roll</th>
+                                                    }
+                                                    @if (_auction.Status == "closed" && _isAdmin && !item.Delivered && itemBids.Any())
+                                                    {
+                                                        <th>Action</th>
+                                                    }
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @for (int i = 0; i < itemBids.Count; i++)
+                                                {
+                                                    var bid = itemBids[i];
+                                                    <tr class="@(i == 0 && !item.Delivered ? "table-success" : "")">
+                                                        <td>@(i + 1)</td>
+                                                        <td>@bid.Username</td>
+                                                        <td>@bid.Bid.Amount DKP</td>
+                                                        <td>
+                                                            <span class="badge @GetBidTypeBadgeClass(bid.Bid.BidType)">
+                                                                @bid.Bid.BidType.ToUpper()
+                                                            </span>
+                                                        </td>
+                                                        @if (itemBids.Any(b => b.DieRoll > 0))
+                                                        {
+                                                            <td>
+                                                                @if (bid.DieRoll > 0)
+                                                                {
+                                                                    <span>🎲 @bid.DieRoll</span>
+                                                                }
+                                                            </td>
+                                                        }
+                                                        @if (_auction.Status == "closed" && _isAdmin && !item.Delivered)
+                                                        {
+                                                            <td>
+                                                                <button class="btn btn-sm btn-success"
+                                                                        @onclick="() => DeliverItem(item.Id, bid.Bid.UserId, bid.Bid.Amount)"
+                                                                        disabled="@_isProcessing">
+                                                                    Deliver to @bid.Username
+                                                                </button>
+                                                            </td>
+                                                        }
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    @if (_auction.Status == "closed" && _isAdmin && !item.Delivered)
+                                    {
+                                        <div class="mt-2">
+                                            <button class="btn btn-sm btn-outline-secondary"
+                                                    @onclick="() => SkipItem(item.Id)"
+                                                    disabled="@_isProcessing">
+                                                ⏭️ Skip Item (Don't Deliver)
+                                            </button>
+                                            <small class="text-muted ms-2">Use this if the item should not be delivered to anyone</small>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid AuctionId { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private Auction? _auction;
+    private List<AuctionItem> _items = new();
+    private Dictionary<Guid, List<BidWithUser>> _itemBids = new();
+    private Dictionary<Guid, AuctionBid> _userBids = new();
+    private Dictionary<Guid, User> _users = new();
+    private Dictionary<Guid, int> _bidAmounts = new();
+    private Dictionary<Guid, string> _bidTypes = new();
+    private User? _currentUser;
+    private int _totalActiveBids = 0;
+    private bool _isAdmin = false;
+    private bool _isLoading = true;
+    private bool _isProcessing = false;
+    private string _errorMessage = string.Empty;
+    private string _actionMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        _errorMessage = string.Empty;
+
+        try
+        {
+            // Get current user
+            var authState = await AuthenticationStateTask!;
+            var userIdClaim = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            {
+                _errorMessage = "Unable to identify current user.";
+                return;
+            }
+
+            _isAdmin = authState.User.IsInRole("admin");
+            _currentUser = await UserRepository.FindByIdAsync(userId);
+
+            // Load auction
+            _auction = await AuctionService.GetAuctionByIdAsync(AuctionId);
+            if (_auction == null)
+            {
+                _errorMessage = "Auction not found.";
+                return;
+            }
+
+            // Load items
+            _items = (await AuctionService.GetAuctionItemsAsync(AuctionId)).ToList();
+
+            // Initialize bid amounts and types
+            foreach (var item in _items)
+            {
+                _bidAmounts[item.Id] = item.MinimumBid;
+                _bidTypes[item.Id] = "main";
+            }
+
+            // Load user's bids
+            if (_currentUser != null)
+            {
+                var userBids = await AuctionService.GetUserBidsForAuctionAsync(userId, AuctionId);
+                foreach (var bid in userBids)
+                {
+                    _userBids[bid.AuctionItemId] = bid;
+                    _bidAmounts[bid.AuctionItemId] = bid.Amount;
+                    _bidTypes[bid.AuctionItemId] = bid.BidType;
+                }
+
+                _totalActiveBids = await AuctionService.GetTotalActiveBidsAsync(userId, AuctionId);
+            }
+
+            // Load bids for each item (if closed or admin)
+            if (_auction.Status == "closed" || _isAdmin)
+            {
+                foreach (var item in _items)
+                {
+                    var sortedBids = await AuctionService.GetSortedBidsForItemAsync(item.Id);
+                    _itemBids[item.Id] = sortedBids;
+
+                    // Load user info for each bidder
+                    foreach (var bidWithUser in sortedBids)
+                    {
+                        if (!_users.ContainsKey(bidWithUser.Bid.UserId))
+                        {
+                            var user = await UserRepository.FindByIdAsync(bidWithUser.Bid.UserId);
+                            if (user != null)
+                            {
+                                _users[bidWithUser.Bid.UserId] = user;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task PlaceBid(Guid itemId)
+    {
+        _actionMessage = string.Empty;
+        _isProcessing = true;
+
+        try
+        {
+            if (_currentUser == null) return;
+
+            var amount = _bidAmounts.GetValueOrDefault(itemId, 0);
+            var bidType = _bidTypes.GetValueOrDefault(itemId, "main");
+
+            var result = await AuctionService.PlaceOrUpdateBidAsync(_currentUser.Id, itemId, amount, bidType);
+
+            if (result.Success)
+            {
+                _actionMessage = "Bid placed successfully!";
+                await LoadData();
+            }
+            else
+            {
+                _actionMessage = result.ErrorMessage;
+            }
+        }
+        catch (Exception ex)
+        {
+            _actionMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private async Task RetractBid(Guid itemId)
+    {
+        _actionMessage = string.Empty;
+        _isProcessing = true;
+
+        try
+        {
+            if (_currentUser == null) return;
+
+            var result = await AuctionService.RetractBidAsync(_currentUser.Id, itemId);
+
+            if (result.Success)
+            {
+                _actionMessage = "Bid retracted successfully!";
+                await LoadData();
+            }
+            else
+            {
+                _actionMessage = result.ErrorMessage;
+            }
+        }
+        catch (Exception ex)
+        {
+            _actionMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private async Task StartAuction()
+    {
+        _actionMessage = string.Empty;
+        _isProcessing = true;
+
+        try
+        {
+            var result = await AuctionService.StartAuctionAsync(AuctionId, 30); // Default 30 minutes
+
+            if (result.Success)
+            {
+                _actionMessage = "Auction started successfully!";
+                await LoadData();
+            }
+            else
+            {
+                _actionMessage = result.ErrorMessage;
+            }
+        }
+        catch (Exception ex)
+        {
+            _actionMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private async Task CloseAuction()
+    {
+        _actionMessage = string.Empty;
+        _isProcessing = true;
+
+        try
+        {
+            var result = await AuctionService.CloseAuctionAsync(AuctionId);
+
+            if (result.Success)
+            {
+                _actionMessage = "Auction closed successfully!";
+                await LoadData();
+            }
+            else
+            {
+                _actionMessage = result.ErrorMessage;
+            }
+        }
+        catch (Exception ex)
+        {
+            _actionMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private async Task CancelAuction()
+    {
+        _actionMessage = string.Empty;
+        _isProcessing = true;
+
+        try
+        {
+            var result = await AuctionService.CancelAuctionAsync(AuctionId);
+
+            if (result.Success)
+            {
+                _actionMessage = "Auction cancelled successfully!";
+                await LoadData();
+            }
+            else
+            {
+                _actionMessage = result.ErrorMessage;
+            }
+        }
+        catch (Exception ex)
+        {
+            _actionMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private async Task DeliverItem(Guid itemId, Guid winnerId, int finalPrice)
+    {
+        _actionMessage = string.Empty;
+        _isProcessing = true;
+
+        try
+        {
+            if (_currentUser == null) return;
+
+            var result = await AuctionService.DeliverItemAsync(itemId, winnerId, finalPrice, _currentUser.Id);
+
+            if (result.Success)
+            {
+                _actionMessage = "Item delivered successfully!";
+                await LoadData();
+            }
+            else
+            {
+                _actionMessage = result.ErrorMessage;
+            }
+        }
+        catch (Exception ex)
+        {
+            _actionMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private async Task SkipItem(Guid itemId)
+    {
+        _actionMessage = string.Empty;
+        _isProcessing = true;
+
+        try
+        {
+            // Mark item as delivered with no winner (skipped)
+            var item = await AuctionRepository.GetAuctionItemByIdAsync(itemId);
+            if (item == null)
+            {
+                _actionMessage = "Item not found.";
+                return;
+            }
+
+            // We'll mark it as delivered but with no winner
+            using var connection = await DbConnectionFactory.CreateConnectionAsync();
+            await connection.ExecuteAsync(
+                @"UPDATE auction_items
+                  SET delivered = true, delivered_at = @DeliveredAt, delivered_by = @DeliveredBy
+                  WHERE id = @ItemId",
+                new { ItemId = itemId, DeliveredAt = DateTime.UtcNow, DeliveredBy = _currentUser!.Id }
+            );
+
+            _actionMessage = "Item skipped (not delivered to anyone).";
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            _actionMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private string GetBidTypeBadgeClass(string bidType)
+    {
+        return bidType.ToLower() switch
+        {
+            "main" => "bg-primary",
+            "alt" => "bg-info",
+            "greed" => "bg-secondary",
+            _ => "bg-secondary"
+        };
+    }
+}

@@ -1,0 +1,248 @@
+@page "/admin/auctions/new"
+@using DkpSystem.Services
+@using DkpSystem.Data.Repositories
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Security.Claims
+@attribute [Authorize(Roles = "admin")]
+@rendermode InteractiveServer
+@inject AuctionService AuctionService
+@inject UserRepository UserRepository
+@inject NavigationManager Navigation
+
+<PageTitle>Create Auction</PageTitle>
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-10 offset-md-1">
+            <h2>Create New Auction</h2>
+
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <div class="alert alert-danger" role="alert">
+                    @_errorMessage
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(_successMessage))
+            {
+                <div class="alert alert-success" role="alert">
+                    @_successMessage
+                </div>
+            }
+
+            <div class="card">
+                <div class="card-body">
+                    <EditForm Model="@_model" OnValidSubmit="@HandleSubmit" FormName="AuctionForm">
+                        <AntiforgeryToken />
+                        <DataAnnotationsValidator />
+
+                        <div class="mb-3">
+                            <label for="auctionName" class="form-label">Auction Name</label>
+                            <InputText id="auctionName" class="form-control" @bind-Value="_model.Name" placeholder="e.g., Weekly Raid Loot - Week 15" />
+                            <ValidationMessage For="@(() => _model.Name)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="duration" class="form-label">Duration (minutes)</label>
+                            <InputNumber id="duration" class="form-control" @bind-Value="_model.DurationMinutes" />
+                            <ValidationMessage For="@(() => _model.DurationMinutes)" />
+                            <small class="form-text text-muted">How long raiders will have to place their bids.</small>
+                        </div>
+
+                        <hr />
+
+                        <h4>Items</h4>
+                        <p class="text-muted">Add items that will be auctioned. Each item must have a unique name and a minimum bid.</p>
+
+                        @for (int i = 0; i < _model.Items.Count; i++)
+                        {
+                            var index = i;
+                            <div class="card mb-2">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <label class="form-label">Item Name</label>
+                                            <input type="text" class="form-control" @bind="_model.Items[index].Name" placeholder="e.g., Legendary Sword" />
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Minimum Bid (DKP)</label>
+                                            <input type="number" class="form-control" @bind="_model.Items[index].MinimumBid" min="1" />
+                                        </div>
+                                        <div class="col-md-2 d-flex align-items-end">
+                                            <button type="button" class="btn btn-danger w-100" @onclick="() => RemoveItem(index)">
+                                                Remove
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        <button type="button" class="btn btn-secondary mb-3" @onclick="AddItem" @onclick:preventDefault="true">
+                            + Add Item
+                        </button>
+
+                        <hr />
+
+                        <div class="d-flex justify-content-between">
+                            <button type="button" class="btn btn-outline-secondary" @onclick="Cancel">
+                                Cancel
+                            </button>
+                            <button type="submit" class="btn btn-primary" disabled="@_isSubmitting">
+                                @if (_isSubmitting)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                }
+                                Create Auction
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private AuctionFormModel _model = new();
+    private string _errorMessage = string.Empty;
+    private string _successMessage = string.Empty;
+    private bool _isSubmitting = false;
+
+    protected override void OnInitialized()
+    {
+        // Start with one empty item
+        _model.Items.Add(new AuctionItemModel());
+    }
+
+    private void AddItem()
+    {
+        _model.Items.Add(new AuctionItemModel());
+    }
+
+    private void RemoveItem(int index)
+    {
+        if (_model.Items.Count > 1)
+        {
+            _model.Items.RemoveAt(index);
+        }
+        else
+        {
+            _errorMessage = "At least one item is required.";
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        _errorMessage = string.Empty;
+        _successMessage = string.Empty;
+        _isSubmitting = true;
+
+        try
+        {
+            // Validate
+            if (string.IsNullOrWhiteSpace(_model.Name))
+            {
+                _errorMessage = "Auction name is required.";
+                return;
+            }
+
+            if (_model.DurationMinutes <= 0)
+            {
+                _errorMessage = "Duration must be greater than zero.";
+                return;
+            }
+
+            if (_model.Items.Count == 0)
+            {
+                _errorMessage = "At least one item is required.";
+                return;
+            }
+
+            // Validate items
+            foreach (var item in _model.Items)
+            {
+                if (string.IsNullOrWhiteSpace(item.Name))
+                {
+                    _errorMessage = "All items must have a name.";
+                    return;
+                }
+
+                if (item.MinimumBid <= 0)
+                {
+                    _errorMessage = "All items must have a minimum bid greater than zero.";
+                    return;
+                }
+            }
+
+            // Get current user
+            var authState = await AuthenticationStateTask!;
+            var userIdClaim = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            {
+                _errorMessage = "Unable to identify current user.";
+                return;
+            }
+
+            // Get user's guild
+            var user = await UserRepository.FindByIdAsync(userId);
+            if (user == null || user.GuildId == null)
+            {
+                _errorMessage = "You must be assigned to a guild to create auctions.";
+                return;
+            }
+
+            // Create auction
+            var items = _model.Items.Select(i => (i.Name, i.MinimumBid)).ToList();
+            var result = await AuctionService.CreateAuctionAsync(
+                user.GuildId.Value,
+                _model.Name,
+                _model.DurationMinutes,
+                userId,
+                items
+            );
+
+            if (result.Success && result.Auction != null)
+            {
+                _successMessage = "Auction created successfully! Redirecting...";
+                await Task.Delay(1000);
+                Navigation.NavigateTo($"/auctions/{result.Auction.Id}");
+            }
+            else
+            {
+                _errorMessage = result.ErrorMessage;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/auctions");
+    }
+
+    private class AuctionFormModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public int DurationMinutes { get; set; } = 30;
+        public List<AuctionItemModel> Items { get; set; } = new();
+    }
+
+    private class AuctionItemModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public int MinimumBid { get; set; } = 10;
+    }
+}
