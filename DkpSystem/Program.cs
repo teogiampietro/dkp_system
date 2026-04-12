@@ -20,7 +20,7 @@ builder.Services.AddServerSideBlazor()
 
 // Register DbConnectionFactory
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+                       ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 builder.Services.AddSingleton(new DbConnectionFactory(connectionString));
 
 // Register repositories
@@ -31,31 +31,31 @@ builder.Services.AddScoped<IUserStore<User>, DapperUserStore>();
 
 // Add authentication services
 builder.Services.AddAuthentication(options =>
-{
-    options.DefaultScheme = IdentityConstants.ApplicationScheme;
-    options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
-})
-.AddIdentityCookies();
+    {
+        options.DefaultScheme = IdentityConstants.ApplicationScheme;
+        options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
+    })
+    .AddIdentityCookies();
 
 // Configure ASP.NET Core Identity (using IdentityCore since we don't need role store)
 builder.Services.AddIdentityCore<User>(options =>
-{
-    // Password settings
-    options.Password.RequireDigit = true;
-    options.Password.RequireLowercase = true;
-    options.Password.RequireUppercase = true;
-    options.Password.RequireNonAlphanumeric = false;
-    options.Password.RequiredLength = 6;
+    {
+        // Password settings
+        options.Password.RequireDigit = true;
+        options.Password.RequireLowercase = true;
+        options.Password.RequireUppercase = true;
+        options.Password.RequireNonAlphanumeric = false;
+        options.Password.RequiredLength = 6;
 
-    // User settings
-    options.User.RequireUniqueEmail = true;
+        // User settings
+        options.User.RequireUniqueEmail = true;
 
-    // Sign-in settings
-    options.SignIn.RequireConfirmedEmail = false;
-    options.SignIn.RequireConfirmedAccount = false;
-})
-.AddDefaultTokenProviders()
-.AddSignInManager<SignInManager<User>>();
+        // Sign-in settings
+        options.SignIn.RequireConfirmedEmail = false;
+        options.SignIn.RequireConfirmedAccount = false;
+    })
+    .AddDefaultTokenProviders()
+    .AddSignInManager<SignInManager<User>>();
 
 // Configure authentication cookies
 builder.Services.ConfigureApplicationCookie(options =>
@@ -84,6 +84,12 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddCascadingAuthenticationState();
 
 var app = builder.Build();
+
+// Log current environment
+var environment = app.Environment.EnvironmentName;
+app.Logger.LogInformation("🚀 Starting application in {Environment} environment", environment);
+app.Logger.LogInformation("📁 Using configuration from appsettings.json" +
+                          (environment != "Production" ? $" + appsettings.{environment}.json" : ""));
 
 // Run database migrations on startup
 try

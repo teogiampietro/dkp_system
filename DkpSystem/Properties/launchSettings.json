@@ -9,13 +9,22 @@
       }
     },
     "profiles": {
-      "http": {
+      "http (Development)": {
         "commandName": "Project",
         "dotnetRunMessages": true,
         "launchBrowser": false,
         "applicationUrl": "http://localhost:5073",
         "environmentVariables": {
           "ASPNETCORE_ENVIRONMENT": "Development"
+        }
+      },
+      "http (Production)": {
+        "commandName": "Project",
+        "dotnetRunMessages": true,
+        "launchBrowser": false,
+        "applicationUrl": "http://localhost:5073",
+        "environmentVariables": {
+          "ASPNETCORE_ENVIRONMENT": "Production"
         }
       },
       "IIS Express": {
