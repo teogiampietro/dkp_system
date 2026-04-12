@@ -25,6 +25,7 @@ builder.Services.AddSingleton(new DbConnectionFactory(connectionString));
 
 // Register repositories
 builder.Services.AddScoped<UserRepository>();
+builder.Services.AddScoped<MemberRepository>();
 
 // Register custom Identity store
 builder.Services.AddScoped<IUserStore<User>, DapperUserStore>();
@@ -55,7 +56,8 @@ builder.Services.AddIdentityCore<User>(options =>
         options.SignIn.RequireConfirmedAccount = false;
     })
     .AddDefaultTokenProviders()
-    .AddSignInManager<SignInManager<User>>();
+    .AddSignInManager<SignInManager<User>>()
+    .AddClaimsPrincipalFactory<CustomUserClaimsPrincipalFactory>();
 
 // Configure authentication cookies
 builder.Services.ConfigureApplicationCookie(options =>
@@ -72,6 +74,7 @@ builder.Services.AddScoped<AuthenticationStateProvider, ServerAuthenticationStat
 
 // Register application services
 builder.Services.AddScoped<AuthenticationService>();
+builder.Services.AddScoped<MemberService>();
 
 // Add authorization
 builder.Services.AddAuthorization(options =>

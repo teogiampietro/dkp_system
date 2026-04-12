@@ -21,7 +21,7 @@
       "http (Production)": {
         "commandName": "Project",
         "dotnetRunMessages": true,
-        "launchBrowser": false,
+        "launchBrowser": true,
         "applicationUrl": "http://localhost:5073",
         "environmentVariables": {
           "ASPNETCORE_ENVIRONMENT": "Production"

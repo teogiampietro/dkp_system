@@ -1,0 +1,297 @@
+@page "/admin/members/{id:guid}"
+@using DkpSystem.Services
+@using DkpSystem.Models
+@using DkpSystem.Data.Repositories
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "admin")]
+@rendermode InteractiveServer
+@inject MemberService MemberService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Member Detail</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Member Detail</h1>
+        <button class="btn btn-secondary" @onclick="NavigateBack">
+            Back to List
+        </button>
+    </div>
+
+    @if (_errorMessage != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @_errorMessage
+            <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button>
+        </div>
+    }
+
+    @if (_successMessage != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @_successMessage
+            <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button>
+        </div>
+    }
+
+    @if (_loading)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (_member == null)
+    {
+        <div class="alert alert-warning">Member not found.</div>
+    }
+    else
+    {
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>Member Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <EditForm Model="@_editModel" OnValidSubmit="SaveChanges">
+                            <DataAnnotationsValidator />
+                            <ValidationSummary class="text-danger" />
+
+                            <div class="mb-3">
+                                <label class="form-label">Username</label>
+                                <input type="text" class="form-control" value="@_member.Username" disabled />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Email</label>
+                                <input type="text" class="form-control" value="@_member.Email" disabled />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">DKP Balance</label>
+                                <input type="text" class="form-control" value="@_member.DkpBalance" disabled />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Role</label>
+                                <select class="form-select" @bind="_editModel.Role">
+                                    <option value="raider">Raider</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Guild</label>
+                                <select class="form-select" @bind="_editModel.GuildId">
+                                    <option value="">No guild</option>
+                                    @if (_guilds != null)
+                                    {
+                                        @foreach (var guild in _guilds)
+                                        {
+                                            <option value="@guild.Id">@guild.Name</option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Status</label>
+                                <input type="text" class="form-control" 
+                                       value="@(_member.Active ? "Active" : "Inactive")" disabled />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Created At</label>
+                                <input type="text" class="form-control" 
+                                       value="@_member.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")" disabled />
+                            </div>
+
+                            <button type="submit" class="btn btn-primary" disabled="@_saving">
+                                @if (_saving)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                }
+                                Save Changes
+                            </button>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>DKP Earnings History</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (_earningsHistory == null || !_earningsHistory.Any())
+                        {
+                            <p class="text-muted">No earnings history yet.</p>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Event</th>
+                                            <th>Reason</th>
+                                            <th>DKP</th>
+                                            <th>Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var earning in _earningsHistory)
+                                        {
+                                            <tr>
+                                                <td>@earning.EventName</td>
+                                                <td>@earning.Reason</td>
+                                                <td><strong>+@earning.DkpAmount</strong></td>
+                                                <td>@earning.EarnedAt.ToString("yyyy-MM-dd")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Won Items History</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (_wonItemsHistory == null || !_wonItemsHistory.Any())
+                        {
+                            <p class="text-muted">No won items yet.</p>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Auction</th>
+                                            <th>Item</th>
+                                            <th>DKP Paid</th>
+                                            <th>Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var item in _wonItemsHistory)
+                                        {
+                                            <tr>
+                                                <td>@item.AuctionName</td>
+                                                <td>@item.ItemName</td>
+                                                <td><strong>-@item.DkpPaid</strong></td>
+                                                <td>@item.WonAt.ToString("yyyy-MM-dd")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private User? _member;
+    private IEnumerable<Guild>? _guilds;
+    private IEnumerable<MemberEarningHistory>? _earningsHistory;
+    private IEnumerable<MemberWonItemHistory>? _wonItemsHistory;
+    private bool _loading = true;
+    private bool _saving = false;
+    private string? _errorMessage;
+    private string? _successMessage;
+    private MemberEditModel _editModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loading = true;
+        _errorMessage = null;
+
+        try
+        {
+            _member = await MemberService.GetMemberByIdAsync(Id);
+            
+            if (_member != null)
+            {
+                _guilds = await MemberService.GetAllGuildsAsync();
+                _earningsHistory = await MemberService.GetMemberEarningsHistoryAsync(Id);
+                _wonItemsHistory = await MemberService.GetMemberWonItemsHistoryAsync(Id);
+
+                // Initialize edit model
+                _editModel.Role = _member.Role;
+                _editModel.GuildId = _member.GuildId?.ToString() ?? "";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to load member: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SaveChanges()
+    {
+        if (_member == null) return;
+
+        _saving = true;
+        _errorMessage = null;
+        _successMessage = null;
+
+        try
+        {
+            Guid? guildId = string.IsNullOrEmpty(_editModel.GuildId) ? null : Guid.Parse(_editModel.GuildId);
+            
+            var result = await MemberService.UpdateMemberRoleAndGuildAsync(Id, _editModel.Role, guildId);
+            
+            if (result.IsSuccess)
+            {
+                _successMessage = "Member updated successfully.";
+                await LoadDataAsync();
+            }
+            else
+            {
+                _errorMessage = result.ErrorMessage;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to update member: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void NavigateBack()
+    {
+        NavigationManager.NavigateTo("/admin/members");
+    }
+
+    private class MemberEditModel
+    {
+        public string Role { get; set; } = "raider";
+        public string GuildId { get; set; } = "";
+    }
+}

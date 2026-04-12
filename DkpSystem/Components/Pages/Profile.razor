@@ -4,14 +4,24 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using DkpSystem.Services
 @using DkpSystem.Models
+@using DkpSystem.Data.Repositories
 @attribute [Authorize]
-@inject AuthenticationService AuthService
+@rendermode InteractiveServer
+@inject MemberService MemberService
 @inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>My Profile - DKP System</PageTitle>
 
 <div class="container mt-4">
     <h2>My Profile</h2>
+
+    @if (_errorMessage != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @_errorMessage
+            <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button>
+        </div>
+    }
 
     @if (_user != null)
     {
@@ -38,7 +48,7 @@
 
                             <dt class="col-sm-4">DKP Balance:</dt>
                             <dd class="col-sm-8">
-                                <strong class="text-success">@_user.DkpBalance</strong>
+                                <strong class="text-success fs-4">@_user.DkpBalance</strong>
                             </dd>
 
                             <dt class="col-sm-4">Guild:</dt>
@@ -59,8 +69,9 @@
                     <div class="card-body">
                         @if (!string.IsNullOrEmpty(_passwordMessage))
                         {
-                            <div class="alert alert-@(_passwordSuccess ? "success" : "danger")" role="alert">
+                            <div class="alert alert-@(_passwordSuccess ? "success" : "danger") alert-dismissible fade show" role="alert">
                                 @_passwordMessage
+                                <button type="button" class="btn-close" @onclick="() => _passwordMessage = string.Empty"></button>
                             </div>
                         }
 
@@ -71,19 +82,16 @@
                             <div class="mb-3">
                                 <label for="currentPassword" class="form-label">Current Password</label>
                                 <InputText id="currentPassword" type="password" class="form-control" @bind-Value="_passwordModel.CurrentPassword" />
-                                <ValidationMessage For="@(() => _passwordModel.CurrentPassword)" />
                             </div>
 
                             <div class="mb-3">
                                 <label for="newPassword" class="form-label">New Password</label>
                                 <InputText id="newPassword" type="password" class="form-control" @bind-Value="_passwordModel.NewPassword" />
-                                <ValidationMessage For="@(() => _passwordModel.NewPassword)" />
                             </div>
 
                             <div class="mb-3">
                                 <label for="confirmNewPassword" class="form-label">Confirm New Password</label>
                                 <InputText id="confirmNewPassword" type="password" class="form-control" @bind-Value="_passwordModel.ConfirmNewPassword" />
-                                <ValidationMessage For="@(() => _passwordModel.ConfirmNewPassword)" />
                             </div>
 
                             <button type="submit" class="btn btn-primary" disabled="@_isChangingPassword">
@@ -110,22 +118,36 @@
                         <h4>DKP Earnings History</h4>
                     </div>
                     <div class="card-body">
-                        <p class="text-muted">Your DKP earnings will appear here once you participate in events.</p>
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>Event</th>
-                                    <th>Reason</th>
-                                    <th>Points Earned</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td colspan="4" class="text-center text-muted">No earnings yet</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        @if (_earningsHistory == null || !_earningsHistory.Any())
+                        {
+                            <p class="text-muted">Your DKP earnings will appear here once you participate in events.</p>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Event</th>
+                                            <th>Reason</th>
+                                            <th>Points Earned</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var earning in _earningsHistory)
+                                        {
+                                            <tr>
+                                                <td>@earning.EarnedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                                                <td>@earning.EventName</td>
+                                                <td>@earning.Reason</td>
+                                                <td><strong class="text-success">+@earning.DkpAmount</strong></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
                     </div>
                 </div>
             </div>
@@ -138,22 +160,36 @@
                         <h4>Won Items History</h4>
                     </div>
                     <div class="card-body">
-                        <p class="text-muted">Items you've won in auctions will appear here.</p>
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>Auction</th>
-                                    <th>Item</th>
-                                    <th>DKP Paid</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td colspan="4" class="text-center text-muted">No items won yet</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        @if (_wonItemsHistory == null || !_wonItemsHistory.Any())
+                        {
+                            <p class="text-muted">Items you've won in auctions will appear here.</p>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Auction</th>
+                                            <th>Item</th>
+                                            <th>DKP Paid</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var item in _wonItemsHistory)
+                                        {
+                                            <tr>
+                                                <td>@item.WonAt.ToString("yyyy-MM-dd HH:mm")</td>
+                                                <td>@item.AuctionName</td>
+                                                <td>@item.ItemName</td>
+                                                <td><strong class="text-danger">-@item.DkpPaid</strong></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
                     </div>
                 </div>
             </div>
@@ -177,11 +213,14 @@
 
 @code {
     private User? _user;
+    private IEnumerable<MemberEarningHistory>? _earningsHistory;
+    private IEnumerable<MemberWonItemHistory>? _wonItemsHistory;
     private bool _isLoading = true;
     private ChangePasswordModel _passwordModel = new();
     private string _passwordMessage = string.Empty;
     private bool _passwordSuccess = false;
     private bool _isChangingPassword = false;
+    private string? _errorMessage;
 
     protected override async Task OnInitializedAsync()
     {
@@ -191,6 +230,7 @@
     private async Task LoadUserProfile()
     {
         _isLoading = true;
+        _errorMessage = null;
 
         try
         {
@@ -202,9 +242,19 @@
                 var userIdClaim = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
                 if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
                 {
-                    _user = await AuthService.GetUserByIdAsync(userId);
+                    _user = await MemberService.GetMemberByIdAsync(userId);
+                    
+                    if (_user != null)
+                    {
+                        _earningsHistory = await MemberService.GetMemberEarningsHistoryAsync(userId);
+                        _wonItemsHistory = await MemberService.GetMemberWonItemsHistoryAsync(userId);
+                    }
                 }
             }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to load profile: {ex.Message}";
         }
         finally
         {
@@ -233,12 +283,12 @@
                 return;
             }
 
-            var (success, errors) = await AuthService.ChangePasswordAsync(
+            var result = await MemberService.ChangeOwnPasswordAsync(
                 _user.Id,
                 _passwordModel.CurrentPassword,
                 _passwordModel.NewPassword);
 
-            if (success)
+            if (result.IsSuccess)
             {
                 _passwordMessage = "Password changed successfully!";
                 _passwordSuccess = true;
@@ -246,7 +296,7 @@
             }
             else
             {
-                _passwordMessage = string.Join(" ", errors);
+                _passwordMessage = result.ErrorMessage ?? "Failed to change password.";
                 _passwordSuccess = false;
             }
         }
