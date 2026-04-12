@@ -1,93 +1,93 @@
 # DKP System
 
-Sistema de gestión de DKP (Dragon Kill Points) desarrollado con Blazor Server y PostgreSQL.
+DKP (Dragon Kill Points) management system built with Blazor Server and PostgreSQL.
 
-## Descripción
+## Description
 
-DKP System es una aplicación web para gestionar puntos DKP en guilds de juegos MMORPG. Permite administrar eventos, subastas de items, y el seguimiento de puntos de los miembros del guild.
+DKP System is a web application for managing DKP points in MMORPG guilds. It allows you to manage events, item auctions, and track guild members' points.
 
-## Tecnologías
+## Technologies
 
 - **Framework**: .NET 8.0 / Blazor Server
-- **Base de datos**: PostgreSQL
+- **Database**: PostgreSQL
 - **ORM**: Dapper
-- **Autenticación**: ASP.NET Core Identity con Cookie Authentication
+- **Authentication**: ASP.NET Core Identity with Cookie Authentication
 
-## Características
+## Features
 
-- ✅ Sistema de autenticación (Login/Register)
-- ✅ Gestión de usuarios y roles
-- ✅ Arquitectura modular con servicios y repositorios
-- ✅ Migraciones de base de datos
-- ✅ Tests unitarios
-- 🚧 Gestión de eventos DKP
-- 🚧 Sistema de subastas
-- 🚧 Dashboard de estadísticas
+- ✅ Authentication system (Login/Register)
+- ✅ User and role management
+- ✅ Modular architecture with services and repositories
+- ✅ Database migrations
+- ✅ Unit tests
+- 🚧 DKP event management
+- 🚧 Auction system
+- 🚧 Statistics dashboard
 
-## Estructura del Proyecto
+## Project Structure
 
 ```
 dkp_system/
-├── DkpSystem/              # Aplicación principal Blazor
-│   ├── Components/         # Componentes Razor
-│   ├── Data/              # Acceso a datos y repositorios
-│   ├── Models/            # Modelos de dominio
-│   ├── Services/          # Servicios de negocio
-│   └── Migrations/        # Scripts SQL de migración
-├── DkpSystem.Tests/       # Proyecto de tests
-└── HashGenerator/         # Utilidad para generar hashes
+├── DkpSystem/              # Main Blazor application
+│   ├── Components/         # Razor components
+│   ├── Data/              # Data access and repositories
+│   ├── Models/            # Domain models
+│   ├── Services/          # Business services
+│   └── Migrations/        # SQL migration scripts
+├── DkpSystem.Tests/       # Test project
+└── HashGenerator/         # Hash generation utility
 ```
 
-## Requisitos Previos
+## Prerequisites
 
 - .NET 8.0 SDK
 - PostgreSQL 12+
-- Visual Studio 2022, Rider, o VS Code
+- Visual Studio 2022, Rider, or VS Code
 
-## Configuración
+## Setup
 
-1. Clonar el repositorio:
+1. Clone the repository:
 ```bash
-git clone https://github.com/TU_USUARIO/dkp_system.git
+git clone https://github.com/YOUR_USERNAME/dkp_system.git
 cd dkp_system
 ```
 
-2. Configurar la base de datos PostgreSQL y actualizar la cadena de conexión en `appsettings.json`
+2. Configure PostgreSQL database and update the connection string in `appsettings.json`
 
-3. Ejecutar las migraciones:
+3. Run migrations:
 ```bash
-psql -U tu_usuario -d tu_base_de_datos -f DkpSystem/Migrations/run_all_migrations.sql
+psql -U your_user -d your_database -f DkpSystem/Migrations/run_all_migrations.sql
 ```
 
-4. Ejecutar la aplicación:
+4. Run the application:
 ```bash
 cd DkpSystem
 dotnet run
 ```
 
-5. Acceder a la aplicación en `https://localhost:5001`
+5. Access the application at `https://localhost:5001`
 
-## Credenciales por Defecto
+## Default Credentials
 
-- **Usuario**: admin
-- **Contraseña**: Admin123!
+- **Username**: admin
+- **Password**: Admin123!
 
 ## Tests
 
-Ejecutar los tests unitarios:
+Run unit tests:
 ```bash
 dotnet test
 ```
 
-## Documentación
+## Documentation
 
-- [Documentación del Sistema](DKP_SYSTEM_DOC.md)
-- [Playbook de Desarrollo](DKP_DEVELOPMENT_PLAYBOOK.md)
+- [System Documentation](DKP_SYSTEM_DOC.md)
+- [Development Playbook](DKP_DEVELOPMENT_PLAYBOOK.md)
 
-## Licencia
+## License
 
-Este proyecto es de código abierto y está disponible bajo la licencia MIT.
+This project is open source and available under the MIT License.
 
-## Autor
+## Author
 
-Desarrollado por Teo Giampietro
+Developed by Teo Giampietro
