@@ -1,0 +1,42 @@
+﻿@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Authorization
+@using DkpSystem.Services
+
+<div class="page">
+    <AuthorizeView>
+        <Authorized>
+            <div class="sidebar">
+                <NavMenu/>
+            </div>
+        </Authorized>
+    </AuthorizeView>
+    <main>
+        <div class="top-row px-4">
+            <AuthorizeView>
+                <Authorized>
+                    <span class="me-3">
+                        Welcome, <strong>@context.User.Identity?.Name</strong>
+                        <span class="badge bg-@(context.User.IsInRole("admin") ? "danger" : "primary") ms-2">
+                            @(context.User.IsInRole("admin") ? "Admin" : "Raider")
+                        </span>
+                    </span>
+                    <LogoutButton/>
+                </Authorized>
+                <NotAuthorized>
+                    <a href="/login" class="btn btn-sm btn-primary me-2">Login</a>
+                    <a href="/register" class="btn btn-sm btn-outline-primary">Register</a>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>

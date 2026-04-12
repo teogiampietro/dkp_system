@@ -1,0 +1,276 @@
+@page "/profile"
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using DkpSystem.Services
+@using DkpSystem.Models
+@attribute [Authorize]
+@inject AuthenticationService AuthService
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>My Profile - DKP System</PageTitle>
+
+<div class="container mt-4">
+    <h2>My Profile</h2>
+
+    @if (_user != null)
+    {
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Account Information</h4>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row">
+                            <dt class="col-sm-4">Username:</dt>
+                            <dd class="col-sm-8">@_user.Username</dd>
+
+                            <dt class="col-sm-4">Email:</dt>
+                            <dd class="col-sm-8">@_user.Email</dd>
+
+                            <dt class="col-sm-4">Role:</dt>
+                            <dd class="col-sm-8">
+                                <span class="badge bg-@(_user.Role == "admin" ? "danger" : "primary")">
+                                    @_user.Role.ToUpper()
+                                </span>
+                            </dd>
+
+                            <dt class="col-sm-4">DKP Balance:</dt>
+                            <dd class="col-sm-8">
+                                <strong class="text-success">@_user.DkpBalance</strong>
+                            </dd>
+
+                            <dt class="col-sm-4">Guild:</dt>
+                            <dd class="col-sm-8">@(_user.GuildId.HasValue ? "Assigned" : "Not assigned")</dd>
+
+                            <dt class="col-sm-4">Member Since:</dt>
+                            <dd class="col-sm-8">@_user.CreatedAt.ToString("MMMM dd, yyyy")</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Change Password</h4>
+                    </div>
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(_passwordMessage))
+                        {
+                            <div class="alert alert-@(_passwordSuccess ? "success" : "danger")" role="alert">
+                                @_passwordMessage
+                            </div>
+                        }
+
+                        <EditForm Model="@_passwordModel" OnValidSubmit="@HandleChangePassword">
+                            <DataAnnotationsValidator />
+                            <ValidationSummary class="text-danger" />
+
+                            <div class="mb-3">
+                                <label for="currentPassword" class="form-label">Current Password</label>
+                                <InputText id="currentPassword" type="password" class="form-control" @bind-Value="_passwordModel.CurrentPassword" />
+                                <ValidationMessage For="@(() => _passwordModel.CurrentPassword)" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="newPassword" class="form-label">New Password</label>
+                                <InputText id="newPassword" type="password" class="form-control" @bind-Value="_passwordModel.NewPassword" />
+                                <ValidationMessage For="@(() => _passwordModel.NewPassword)" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="confirmNewPassword" class="form-label">Confirm New Password</label>
+                                <InputText id="confirmNewPassword" type="password" class="form-control" @bind-Value="_passwordModel.ConfirmNewPassword" />
+                                <ValidationMessage For="@(() => _passwordModel.ConfirmNewPassword)" />
+                            </div>
+
+                            <button type="submit" class="btn btn-primary" disabled="@_isChangingPassword">
+                                @if (_isChangingPassword)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                    <span>Changing...</span>
+                                }
+                                else
+                                {
+                                    <span>Change Password</span>
+                                }
+                            </button>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>DKP Earnings History</h4>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted">Your DKP earnings will appear here once you participate in events.</p>
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Event</th>
+                                    <th>Reason</th>
+                                    <th>Points Earned</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">No earnings yet</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Won Items History</h4>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted">Items you've won in auctions will appear here.</p>
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Auction</th>
+                                    <th>Item</th>
+                                    <th>DKP Paid</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">No items won yet</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else if (_isLoading)
+    {
+        <div class="text-center mt-5">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-danger" role="alert">
+            Unable to load profile information.
+        </div>
+    }
+</div>
+
+@code {
+    private User? _user;
+    private bool _isLoading = true;
+    private ChangePasswordModel _passwordModel = new();
+    private string _passwordMessage = string.Empty;
+    private bool _passwordSuccess = false;
+    private bool _isChangingPassword = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserProfile();
+    }
+
+    private async Task LoadUserProfile()
+    {
+        _isLoading = true;
+
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                var userIdClaim = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+                if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
+                {
+                    _user = await AuthService.GetUserByIdAsync(userId);
+                }
+            }
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task HandleChangePassword()
+    {
+        _isChangingPassword = true;
+        _passwordMessage = string.Empty;
+
+        try
+        {
+            if (_passwordModel.NewPassword != _passwordModel.ConfirmNewPassword)
+            {
+                _passwordMessage = "New passwords do not match.";
+                _passwordSuccess = false;
+                return;
+            }
+
+            if (_user == null)
+            {
+                _passwordMessage = "User not found.";
+                _passwordSuccess = false;
+                return;
+            }
+
+            var (success, errors) = await AuthService.ChangePasswordAsync(
+                _user.Id,
+                _passwordModel.CurrentPassword,
+                _passwordModel.NewPassword);
+
+            if (success)
+            {
+                _passwordMessage = "Password changed successfully!";
+                _passwordSuccess = true;
+                _passwordModel = new(); // Reset form
+            }
+            else
+            {
+                _passwordMessage = string.Join(" ", errors);
+                _passwordSuccess = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _passwordMessage = $"An error occurred: {ex.Message}";
+            _passwordSuccess = false;
+        }
+        finally
+        {
+            _isChangingPassword = false;
+        }
+    }
+
+    private class ChangePasswordModel
+    {
+        [Required(ErrorMessage = "Current password is required")]
+        public string CurrentPassword { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "New password is required")]
+        [StringLength(100, MinimumLength = 6, ErrorMessage = "Password must be at least 6 characters")]
+        public string NewPassword { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Please confirm your new password")]
+        public string ConfirmNewPassword { get; set; } = string.Empty;
+    }
+}
