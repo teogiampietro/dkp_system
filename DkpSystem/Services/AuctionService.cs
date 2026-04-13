@@ -325,10 +325,10 @@ public class AuctionService
             }
         }
 
-        // Sort by bid type priority first (Main > Alt > Greed), then by amount descending, then by placed_at
+        // Sort by amount descending first, then by bid type priority (Main > Alt > Greed), then by placed_at
         var sorted = bidList
-            .OrderBy(b => GetBidTypePriority(b.Bid.BidType))
-            .ThenByDescending(b => b.Bid.Amount)
+            .OrderByDescending(b => b.Bid.Amount)
+            .ThenBy(b => GetBidTypePriority(b.Bid.BidType))
             .ThenBy(b => b.Bid.PlacedAt)
             .ToList();
 

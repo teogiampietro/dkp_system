@@ -22,7 +22,7 @@ public class AuthenticationTests
     {
         // Use test connection string from environment or default
         _testConnectionString = Environment.GetEnvironmentVariable("TEST_CONNECTION_STRING")
-            ?? "Host=localhost;Database=dkp_test;Username=postgres;Password=postgres";
+            ?? "Host=localhost;Port=5433;Database=dkp_test;Username=postgres;Password=postgres";
     }
 
     /// <summary>
@@ -323,6 +323,18 @@ public class AuthenticationTests
         var logger = new Mock<ILogger<SignInManager<User>>>();
         var schemes = new Mock<Microsoft.AspNetCore.Authentication.IAuthenticationSchemeProvider>();
         var confirmation = new Mock<IUserConfirmation<User>>();
+
+        // Setup HttpContext mock to avoid "HttpContext must not be null" error
+        var httpContext = new Mock<Microsoft.AspNetCore.Http.HttpContext>();
+        var authServiceMock = new Mock<Microsoft.AspNetCore.Authentication.IAuthenticationService>();
+        var serviceProvider = new Mock<IServiceProvider>();
+        
+        serviceProvider
+            .Setup(s => s.GetService(typeof(Microsoft.AspNetCore.Authentication.IAuthenticationService)))
+            .Returns(authServiceMock.Object);
+        
+        httpContext.Setup(c => c.RequestServices).Returns(serviceProvider.Object);
+        contextAccessor.Setup(a => a.HttpContext).Returns(httpContext.Object);
 
         options.Setup(o => o.Value).Returns(new IdentityOptions());
 

@@ -15,7 +15,8 @@ public class DbConnectionFactoryTests
     public async Task CreateConnectionAsync_ReturnsOpenConnection()
     {
         // Arrange
-        var connectionString = "Host=localhost;Database=dkp_test;Username=postgres;Password=postgres";
+        var connectionString = Environment.GetEnvironmentVariable("TEST_CONNECTION_STRING")
+            ?? "Host=localhost;Port=5433;Database=dkp_test;Username=postgres;Password=postgres";
         var factory = new DbConnectionFactory(connectionString);
 
         // Act & Assert

@@ -19,6 +19,24 @@ services:
       timeout: 5s
       retries: 5
 
+  # PostgreSQL Test Database
+  postgres_test:
+    image: postgres:16-alpine
+    container_name: dkp_postgres_test
+    environment:
+      POSTGRES_DB: dkp_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dkp_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # DKP System Application
   app:
     build:
@@ -37,3 +55,4 @@ services:
 
 volumes:
   postgres_data:
+  postgres_test_data:

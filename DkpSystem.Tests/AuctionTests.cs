@@ -24,8 +24,8 @@ public class AuctionTests : IAsyncLifetime
 
     public AuctionTests()
     {
-        var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-                               ?? "Host=localhost;Database=dkp_test;Username=postgres;Password=postgres";
+        var connectionString = Environment.GetEnvironmentVariable("TEST_CONNECTION_STRING")
+                               ?? "Host=localhost;Port=5433;Database=dkp_test;Username=postgres;Password=postgres";
         _connectionFactory = new DbConnectionFactory(connectionString);
         _auctionRepository = new AuctionRepository(_connectionFactory);
         _bidRepository = new BidRepository(_connectionFactory);

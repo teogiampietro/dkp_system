@@ -85,8 +85,7 @@
         _isProcessing = true;
         _errorMessage = string.Empty;
 
-        try
-        {
+  
             // Validate passwords match
             if (_model.Password != _model.ConfirmPassword)
             {
@@ -101,19 +100,14 @@
             {
                 // Redirect to home page - use NavigateTo with forceLoad
                 // to ensure the authentication cookie is properly loaded
-                Navigation.NavigateTo("/", forceLoad: true);
+                await InvokeAsync(() => Navigation.NavigateTo("/"));
             }
             else
             {
                 _errorMessage = string.Join(" ", errors);
                 _isProcessing = false;
             }
-        }
-        catch (Exception ex)
-        {
-            _errorMessage = $"An error occurred: {ex.Message}";
-            _isProcessing = false;
-        }
+
     }
 
     private class RegisterModel

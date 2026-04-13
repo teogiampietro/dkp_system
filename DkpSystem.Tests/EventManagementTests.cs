@@ -23,7 +23,8 @@ public class EventManagementTests : IAsyncLifetime
 
     public EventManagementTests()
     {
-        _connectionString = "Host=localhost;Database=dkp_test;Username=postgres;Password=postgres";
+        _connectionString = Environment.GetEnvironmentVariable("TEST_CONNECTION_STRING")
+            ?? "Host=localhost;Port=5433;Database=dkp_test;Username=postgres;Password=postgres";
         _connectionFactory = new DbConnectionFactory(_connectionString);
         _eventRepository = new EventRepository(_connectionFactory);
         _eventService = new EventService(_eventRepository);
