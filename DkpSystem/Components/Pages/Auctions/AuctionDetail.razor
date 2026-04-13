@@ -242,10 +242,6 @@
                                                     <th>Bidder</th>
                                                     <th>Amount</th>
                                                     <th>Type</th>
-                                                    @if (itemBids.Any(b => b.DieRoll > 0))
-                                                    {
-                                                        <th>Die Roll</th>
-                                                    }
                                                     @if (_auction.Status == "closed" && _isAdmin && !item.Delivered && itemBids.Any())
                                                     {
                                                         <th>Action</th>
@@ -265,15 +261,6 @@
                                                                 @bid.Bid.BidType.ToUpper()
                                                             </span>
                                                         </td>
-                                                        @if (itemBids.Any(b => b.DieRoll > 0))
-                                                        {
-                                                            <td>
-                                                                @if (bid.DieRoll > 0)
-                                                                {
-                                                                    <span>🎲 @bid.DieRoll</span>
-                                                                }
-                                                            </td>
-                                                        }
                                                         @if (_auction.Status == "closed" && _isAdmin && !item.Delivered)
                                                         {
                                                             <td>

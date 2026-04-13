@@ -284,7 +284,7 @@ public class AuctionTests : IAsyncLifetime
         var auctionItems = await _auctionRepository.GetAuctionItemsAsync(auctionId);
         var itemId = auctionItems.First().Id;
 
-        // Place bids
+        // Place bids: 100 MAIN vs 150 ALT - MAIN should win due to type priority
         await _auctionService.PlaceOrUpdateBidAsync(_testRaider1Id, itemId, 100, "main");
         await _auctionService.PlaceOrUpdateBidAsync(_testRaider2Id, itemId, 150, "alt");
 
@@ -295,8 +295,10 @@ public class AuctionTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(2, sortedBids.Count);
-        Assert.Equal(150, sortedBids[0].Bid.Amount); // Higher amount first
-        Assert.Equal(100, sortedBids[1].Bid.Amount);
+        Assert.Equal("main", sortedBids[0].Bid.BidType); // MAIN wins even with lower amount
+        Assert.Equal(100, sortedBids[0].Bid.Amount);
+        Assert.Equal("alt", sortedBids[1].Bid.BidType);
+        Assert.Equal(150, sortedBids[1].Bid.Amount);
     }
 
     [Fact]
@@ -331,7 +333,7 @@ public class AuctionTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task ResolveTie_WithSameAmountAndBidType_RollsDieAndPicksHighest()
+    public async Task SortBids_BidTypePriority_OverridesAmount_MainBeatsHigherAltBid()
     {
         // Arrange
         var items = new List<(string Name, int MinimumBid)> { ("Sword", 10) };
@@ -341,8 +343,37 @@ public class AuctionTests : IAsyncLifetime
         var auctionItems = await _auctionRepository.GetAuctionItemsAsync(auctionId);
         var itemId = auctionItems.First().Id;
 
-        // Place bids with same amount and type
+        // Place bids: 50 DKP ALT vs 10 DKP MAIN - MAIN should win
+        await _auctionService.PlaceOrUpdateBidAsync(_testRaider1Id, itemId, 50, "alt");
+        await _auctionService.PlaceOrUpdateBidAsync(_testRaider2Id, itemId, 10, "main");
+
+        await _auctionService.CloseAuctionAsync(auctionId);
+
+        // Act
+        var sortedBids = await _auctionService.GetSortedBidsForItemAsync(itemId);
+
+        // Assert
+        Assert.Equal(2, sortedBids.Count);
+        Assert.Equal("main", sortedBids[0].Bid.BidType); // MAIN wins even with lower amount
+        Assert.Equal(10, sortedBids[0].Bid.Amount);
+        Assert.Equal("alt", sortedBids[1].Bid.BidType);
+        Assert.Equal(50, sortedBids[1].Bid.Amount);
+    }
+
+    [Fact]
+    public async Task ResolveTie_WithSameAmountAndBidType_UsesBidTimestamp()
+    {
+        // Arrange
+        var items = new List<(string Name, int MinimumBid)> { ("Sword", 10) };
+        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", 30, _testAdminId, items);
+        var auctionId = createResult.Auction!.Id;
+        await _auctionService.StartAuctionAsync(auctionId, 30);
+        var auctionItems = await _auctionRepository.GetAuctionItemsAsync(auctionId);
+        var itemId = auctionItems.First().Id;
+
+        // Place bids with same amount and type (first bid should win)
         await _auctionService.PlaceOrUpdateBidAsync(_testRaider1Id, itemId, 100, "main");
+        await Task.Delay(10); // Small delay to ensure different timestamps
         await _auctionService.PlaceOrUpdateBidAsync(_testRaider2Id, itemId, 100, "main");
 
         await _auctionService.CloseAuctionAsync(auctionId);
@@ -352,9 +383,9 @@ public class AuctionTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(2, sortedBids.Count);
-        Assert.True(sortedBids[0].DieRoll > 0); // Die was rolled
-        Assert.True(sortedBids[1].DieRoll > 0);
-        Assert.True(sortedBids[0].DieRoll >= sortedBids[1].DieRoll); // Winner has higher or equal roll
+        Assert.Equal(_testRaider1Id, sortedBids[0].Bid.UserId); // First bidder wins
+        Assert.Equal(_testRaider2Id, sortedBids[1].Bid.UserId);
+        Assert.True(sortedBids[0].Bid.PlacedAt <= sortedBids[1].Bid.PlacedAt); // Earlier bid wins
     }
 
     [Fact]

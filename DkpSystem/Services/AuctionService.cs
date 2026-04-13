@@ -319,21 +319,17 @@ public class AuctionService
                 bidList.Add(new BidWithUser
                 {
                     Bid = bid,
-                    Username = user.Username,
-                    DieRoll = 0 // Will be set if needed for tiebreaker
+                    Username = user.Username
                 });
             }
         }
 
-        // Sort by amount descending first, then by bid type priority (Main > Alt > Greed), then by placed_at
+        // Sort by bid type priority first (Main > Alt > Greed), then by amount descending, then by placed_at
         var sorted = bidList
-            .OrderByDescending(b => b.Bid.Amount)
-            .ThenBy(b => GetBidTypePriority(b.Bid.BidType))
+            .OrderBy(b => GetBidTypePriority(b.Bid.BidType))
+            .ThenByDescending(b => b.Bid.Amount)
             .ThenBy(b => b.Bid.PlacedAt)
             .ToList();
-
-        // Apply tiebreaker for identical amount and bid type
-        ApplyTiebreaker(sorted);
 
         return sorted;
     }
@@ -411,56 +407,6 @@ public class AuctionService
     }
 
     /// <summary>
-    /// Applies tiebreaker die rolls to bids with identical amount and bid type.
-    /// </summary>
-    private void ApplyTiebreaker(List<BidWithUser> sortedBids)
-    {
-        var random = new Random();
-
-        for (int i = 0; i < sortedBids.Count; i++)
-        {
-            // Find all bids with the same amount and bid type
-            var currentBid = sortedBids[i];
-            var tiedBids = new List<BidWithUser> { currentBid };
-
-            for (int j = i + 1; j < sortedBids.Count; j++)
-            {
-                var nextBid = sortedBids[j];
-                if (nextBid.Bid.Amount == currentBid.Bid.Amount &&
-                    nextBid.Bid.BidType == currentBid.Bid.BidType)
-                {
-                    tiedBids.Add(nextBid);
-                }
-                else
-                {
-                    break;
-                }
-            }
-
-            // If there are tied bids, roll dice
-            if (tiedBids.Count > 1)
-            {
-                foreach (var bid in tiedBids)
-                {
-                    bid.DieRoll = random.Next(1, 101); // 1-100
-                }
-
-                // Sort tied bids by die roll descending
-                var sortedTiedBids = tiedBids.OrderByDescending(b => b.DieRoll).ToList();
-
-                // Replace in the main list
-                for (int k = 0; k < sortedTiedBids.Count; k++)
-                {
-                    sortedBids[i + k] = sortedTiedBids[k];
-                }
-
-                // Skip the tied bids we just processed
-                i += tiedBids.Count - 1;
-            }
-        }
-    }
-
-    /// <summary>
     /// Gets all auctions for a guild.
     /// </summary>
     /// <param name="guildId">The guild ID.</param>
@@ -531,9 +477,4 @@ public class BidWithUser
     /// Gets or sets the username of the bidder.
     /// </summary>
     public string Username { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the die roll for tiebreaker (0 if not applicable).
-    /// </summary>
-    public int DieRoll { get; set; }
 }
