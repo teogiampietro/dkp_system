@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: dkp_postgres
+    environment:
+      POSTGRES_DB: dkp_system
+      POSTGRES_USER: dkp_user
+      POSTGRES_PASSWORD: dkp_password_change_in_production
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dkp_user -d dkp_system"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # DKP System Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dkp_app
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=dkp_system;Username=dkp_user;Password=dkp_password_change_in_production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

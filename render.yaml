@@ -1,0 +1,29 @@
+services:
+  # PostgreSQL Database
+  - type: pserv
+    name: dkp-postgres
+    env: docker
+    plan: free
+    region: oregon
+    envVars:
+      - key: POSTGRES_DB
+        value: dkp_system
+      - key: POSTGRES_USER
+        value: dkp_user
+      - key: POSTGRES_PASSWORD
+        generateValue: true
+
+  # Web Application
+  - type: web
+    name: dkp-system
+    env: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ConnectionStrings__DefaultConnection
+        fromDatabase:
+          name: dkp-postgres
+          property: connectionString

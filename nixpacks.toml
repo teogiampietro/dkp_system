@@ -1,0 +1,12 @@
+[phases.setup]
+nixPkgs = ["...", "dotnet-sdk_8"]
+
+[phases.build]
+cmds = [
+  "dotnet restore DkpSystem/DkpSystem.csproj",
+  "dotnet build DkpSystem/DkpSystem.csproj -c Release -o /app/build",
+  "dotnet publish DkpSystem/DkpSystem.csproj -c Release -o /app/publish /p:UseAppHost=false"
+]
+
+[start]
+cmd = "dotnet /app/publish/DkpSystem.dll"
