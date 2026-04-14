@@ -4,17 +4,14 @@
 @using DkpSystem.Data
 @using DkpSystem.Data.Repositories
 @using Microsoft.AspNetCore.Authorization
-@using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
 @using Dapper
 @attribute [Authorize]
 @rendermode InteractiveServer
 @inject AuctionService AuctionService
 @inject AuctionRepository AuctionRepository
-@inject BidRepository BidRepository
 @inject UserRepository UserRepository
 @inject DbConnectionFactory DbConnectionFactory
-@inject NavigationManager Navigation
 
 <PageTitle>@(_auction?.Name ?? "Auction")</PageTitle>
 

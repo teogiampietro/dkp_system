@@ -131,7 +131,7 @@ public class MemberService
         {
             return ServiceResult.Failure("Member not found.");
         }
-
+        
         // Remove existing password
         var removeResult = await _userManager.RemovePasswordAsync(member);
         if (!removeResult.Succeeded)
@@ -139,11 +139,16 @@ public class MemberService
             return ServiceResult.Failure("Failed to remove existing password.");
         }
 
-        // Add new password
-        var addResult = await _userManager.AddPasswordAsync(member, temporaryPassword);
-        if (!addResult.Succeeded)
+        var tokenResult = await _userManager.GeneratePasswordResetTokenAsync(member);
+        if (string.IsNullOrWhiteSpace(tokenResult))
         {
-            var errors = string.Join(", ", addResult.Errors.Select(e => e.Description));
+            return ServiceResult.Failure($"Failed to generate token for reset password.");
+        }
+        
+        var resetResult = await _userManager.ResetPasswordAsync(member, tokenResult, temporaryPassword);
+        if (!resetResult.Succeeded)
+        {
+            var errors = string.Join(", ", resetResult.Errors.Select(e => e.Description));
             return ServiceResult.Failure($"Failed to set new password: {errors}");
         }
 

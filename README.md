@@ -20,9 +20,31 @@ DKP System is a web application for managing DKP points in MMORPG guilds. It all
 - ✅ Modular architecture with services and repositories
 - ✅ Database migrations
 - ✅ Unit tests
-- 🚧 DKP event management
-- 🚧 Auction system
-- 🚧 Statistics dashboard
+- ✅ DKP event management
+- ✅ Auction system
+
+## Modules
+
+### Events Management (DKP Earnings)
+This module allows administrators to register raid events and assign DKP points to participating guild members. The process is divided into two stages:
+
+1. **Attendance Confirmation**: The admin creates an event with a name and description, and confirms which guild members attended by pre-selecting all active members and allowing unchecking absentees.
+
+2. **DKP Assignment**: Once the event is created, the admin can assign DKP through:
+   - **Group Awards**: Apply a DKP amount to all confirmed attendees for reasons like raid completion.
+   - **Individual Awards**: Assign specific DKP amounts to individual raiders for achievements like first kills.
+
+All DKP assignments update member balances within database transactions to ensure data integrity. Raiders can view their earnings history, while admins see full event details.
+
+### Item Auctions
+The auction system enables structured DKP spending through competitive bidding on guild items. Key features include:
+
+- **Auction Creation**: Admins create auctions with multiple items, each having a minimum bid and a set duration.
+- **Bidding Process**: Raiders place bids on items with types (Main, Alt, Greed) while the auction is open. Bid amounts are hidden until closure, and total active bids cannot exceed a raider's DKP balance.
+- **Auction Closure and Delivery**: Admins close auctions manually, revealing all bids sorted by amount, bid type priority, and timestamp. Ties are resolved with random die rolls. Admins then deliver items one by one, deducting DKP from winners within transactions.
+- **Visibility**: Open auctions show item details and minimum bids; closed auctions display full results. Raiders can track their won items in their profiles.
+
+This module ensures fair distribution of loot while maintaining DKP balance integrity.
 
 ## Project Structure
 

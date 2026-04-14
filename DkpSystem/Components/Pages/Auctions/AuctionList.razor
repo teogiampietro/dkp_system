@@ -3,13 +3,11 @@
 @using DkpSystem.Models
 @using DkpSystem.Data.Repositories
 @using Microsoft.AspNetCore.Authorization
-@using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
 @attribute [Authorize]
 @inject AuctionService AuctionService
 @inject AuctionRepository AuctionRepository
 @inject UserRepository UserRepository
-@inject NavigationManager Navigation
 
 <PageTitle>Auctions</PageTitle>
 

@@ -1,6 +1,4 @@
 ﻿@inherits LayoutComponentBase
-@using Microsoft.AspNetCore.Components.Authorization
-@using DkpSystem.Services
 
 <div class="page">
     <AuthorizeView>
@@ -16,9 +14,9 @@
                 <Authorized>
                     <span class="me-3">
                         Welcome, <strong>@context.User.Identity?.Name</strong>
-                        <span class="badge bg-@(context.User.IsInRole("admin") ? "danger" : "primary") ms-2">
-                            @(context.User.IsInRole("admin") ? "Admin" : "Raider")
-                        </span>
+                        <a href="/profile" class="btn btn-sm btn-outline-@(context.User.IsInRole("admin") ? "danger" : "primary")" role="button">
+                             @(context.User.IsInRole("admin") ? "Admin" : "Raider")
+                        </a>
                     </span>
                     <LogoutButton/>
                 </Authorized>
@@ -29,9 +27,9 @@
             </AuthorizeView>
         </div>
 
-        <article class="content px-4">
-            @Body
-        </article>
+
+        @Body
+
     </main>
 </div>
 

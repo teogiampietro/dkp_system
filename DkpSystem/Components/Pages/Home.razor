@@ -1,7 +1,266 @@
 ﻿@page "/"
 
-<PageTitle>Home</PageTitle>
+<PageTitle>DKP System - Home</PageTitle>
 
-<h1>Hello!</h1>
+<!-- Hero Section -->
+<section class="py-5 bg-light">
+    <div class="container">
+        <div class="text-center">
+            <h1 class="display-4 fw-bold mb-3">Welcome to DKP System</h1>
+            <p class="lead text-muted mb-4">
+                A comprehensive guild management system for organizing raids, distributing DKP (Dragon Kill Points),
+                and running fair item auctions for your gaming community.
+            </p>
+            <AuthorizeView>
+                <Authorized>
+                    <a href="/profile" class="btn btn-primary btn-lg me-2">
+                        <i class="bi bi-person-circle"></i> My Profile
+                    </a>
+                    <a href="/events" class="btn btn-outline-primary btn-lg">
+                        <i class="bi bi-calendar-event"></i> View Events
+                    </a>
+                </Authorized>
+                <NotAuthorized>
+                    <a href="/login" class="btn btn-primary btn-lg me-2">
+                        <i class="bi bi-box-arrow-in-right"></i> Log In
+                    </a>
+                    <a href="/register" class="btn btn-outline-primary btn-lg">
+                        <i class="bi bi-person-plus"></i> Register
+                    </a>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+    </div>
+</section>
 
-Welcome to DKP System
+<!-- How It Works Section -->
+<section class="py-5">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="display-5 fw-bold">How It Works</h2>
+            <p class="text-muted lead">A simple two-step process: Earn and Spend</p>
+        </div>
+
+        <div class="row g-4">
+            <!-- Step 1: Earn DKP -->
+            <div class="col-md-6">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body p-4">
+                        <div class="mb-3">
+                            <i class="bi bi-1-circle-fill text-primary" style="font-size: 2rem;"></i>
+                        </div>
+                        <h3 class="card-title fw-bold">Earn DKP Points</h3>
+                        <p class="card-text text-muted">
+                            Participate in raids and events organized by your guild administrators.
+                            For each event you attend, you earn DKP (Dragon Kill Points) which accumulate in your
+                            balance.
+                        </p>
+                        <ul class="small list-unstyled">
+                            <li><i class="bi bi-check-circle text-success"></i> Automatic updates to your balance</li>
+                            <li><i class="bi bi-check-circle text-success"></i> Transparent history tracking</li>
+                            <li><i class="bi bi-check-circle text-success"></i> Fair reward distribution</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Spend in Auctions -->
+            <div class="col-md-6">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body p-4">
+                        <div class="mb-3">
+                            <i class="bi bi-2-circle-fill text-primary" style="font-size: 2rem;"></i>
+                        </div>
+                        <h3 class="card-title fw-bold">Bid for Loot</h3>
+                        <p class="card-text text-muted">
+                            Use your DKP points to bid on valuable items in guild auctions.
+                            Choose your bid type (Main, Alt, or Greed), place your bid, and compete fairly with other
+                            guild members.
+                        </p>
+                        <ul class="small list-unstyled">
+                            <li><i class="bi bi-check-circle text-success"></i> Competitive bidding system</li>
+                            <li><i class="bi bi-check-circle text-success"></i> Multiple bid types supported</li>
+                            <li><i class="bi bi-check-circle text-success"></i> Transparent results</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Modules Section -->
+<section class="py-5 bg-light">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="display-5 fw-bold">Key Modules</h2>
+            <p class="text-muted lead">Discover the core features that power your guild</p>
+        </div>
+
+        <div class="row g-4">
+            <!-- Events Module -->
+            <div class="col-lg-6">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-header bg-primary text-white py-3">
+                        <h4 class="mb-0">
+                            <i class="bi bi-calendar-event me-2"></i> Events & DKP Earnings
+                        </h4>
+                    </div>
+                    <div class="card-body p-4">
+                        <p class="card-text">
+                            Events are raid sessions where guild members gather and earn DKP based on their
+                            participation
+                            and performance.
+                        </p>
+                        <h5 class="fw-bold mt-4 mb-3">How it works:</h5>
+                        <ol class="small">
+                            <li class="mb-2">
+                                <strong>Event Creation:</strong> Administrators create new events (e.g., "Dragon Raid -
+                                April 14")
+                                and register which members attended.
+                            </li>
+                            <li class="mb-2">
+                                <strong>Group Awards:</strong> The admin assigns DKP to all attendees at once
+                                (e.g., "Raid Completion → +20 DKP").
+                            </li>
+                            <li class="mb-2">
+                                <strong>Individual Bonuses:</strong> The admin can award extra DKP to specific members
+                                for exceptional performance (e.g., "First Kill Bonus → +10 DKP").
+                            </li>
+                            <li class="mb-2">
+                                <strong>Balance Updates:</strong> Your DKP balance is automatically updated as rewards
+                                are assigned.
+                            </li>
+                        </ol>
+                        <p class="small text-muted mt-3">
+                            <i class="bi bi-info-circle me-1"></i>
+                            All transactions are recorded with timestamps and reasons for complete transparency.
+                        </p>
+                    </div>
+                    <div class="card-footer bg-light">
+                        <AuthorizeView>
+                            <Authorized>
+                                <a href="/events" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-arrow-right me-1"></i> View Events
+                                </a>
+                            </Authorized>
+                        </AuthorizeView>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Auctions Module -->
+            <div class="col-lg-6">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-header bg-success text-white py-3">
+                        <h4 class="mb-0">
+                            <i class="bi bi-gavel me-2"></i> Auctions & Item Distribution
+                        </h4>
+                    </div>
+                    <div class="card-body p-4">
+                        <p class="card-text">
+                            Auctions are the primary way to distribute valuable loot among guild members using DKP.
+                        </p>
+                        <h5 class="fw-bold mt-4 mb-3">How it works:</h5>
+                        <ol class="small">
+                            <li class="mb-2">
+                                <strong>Auction Setup:</strong> Administrators create auctions with items and set
+                                minimum bids
+                                (e.g., "Raid Loot - Minimum 10 DKP per item").
+                            </li>
+                            <li class="mb-2">
+                                <strong>Bidding Window:</strong> Members place bids on items during the open bidding
+                                period,
+                                selecting their bid type (Main, Alt, or Greed).
+                            </li>
+                            <li class="mb-2">
+                                <strong>Bid Priority:</strong> Bids are ranked by amount, then by type (Main &gt; Alt
+                                &gt; Greed).
+                                Ties are resolved by a fair die roll system.
+                            </li>
+                            <li class="mb-2">
+                                <strong>Item Delivery:</strong> When the auction closes, administrators deliver items to
+                                winners,
+                                automatically deducting the bid amount from their DKP balance.
+                            </li>
+                        </ol>
+                        <p class="small text-muted mt-3">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Your total active bids cannot exceed your current DKP balance for fair competition.
+                        </p>
+                    </div>
+                    <div class="card-footer bg-light">
+                        <AuthorizeView>
+                            <Authorized>
+                                <a href="/auctions" class="btn btn-sm btn-outline-success">
+                                    <i class="bi bi-arrow-right me-1"></i> View Auctions
+                                </a>
+                            </Authorized>
+                        </AuthorizeView>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Additional Features Section -->
+<section class="py-5">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="display-5 fw-bold">Your Experience</h2>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="text-center">
+                    <div class="mb-3">
+                        <i class="bi bi-graph-up text-primary" style="font-size: 2.5rem;"></i>
+                    </div>
+                    <h5>Track Your Balance</h5>
+                    <p class="text-muted small">
+                        Monitor your DKP balance and review your complete earning and spending history.
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-center">
+                    <div class="mb-3">
+                        <i class="bi bi-shield-check text-success" style="font-size: 2.5rem;"></i>
+                    </div>
+                    <h5>Fair & Transparent</h5>
+                    <p class="text-muted small">
+                        All transactions are recorded with complete visibility into rewards and rankings.
+                    </p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-center">
+                    <div class="mb-3">
+                        <i class="bi bi-people-fill text-info" style="font-size: 2.5rem;"></i>
+                    </div>
+                    <h5>Community Driven</h5>
+                    <p class="text-muted small">
+                        Compete fairly with your guild members in a system designed for everyone.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+<!-- CTA Footer Section -->
+<AuthorizeView>
+    <NotAuthorized>
+     
+        <section class="py-3 bg-primary text-white">
+            <div class="container text-center">
+                <h2 class="fw-bold mb-3">Ready to Get Started?</h2>
+                <p class="mb-4">
+                    Join your guild and start earning DKP today!
+                </p>
+                <a href="/register" class="btn btn-light btn-lg me-2">Create Account</a>
+                <a href="/login" class="btn btn-outline-light btn-lg">Sign In</a>
+            </div>
+        </section>
+    </NotAuthorized>
+</AuthorizeView>
