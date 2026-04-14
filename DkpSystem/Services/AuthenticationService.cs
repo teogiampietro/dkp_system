@@ -12,6 +12,7 @@ public class AuthenticationService
     private readonly UserManager<User> _userManager;
     private readonly SignInManager<User> _signInManager;
     private readonly UserRepository _userRepository;
+    private readonly GuildRepository _guildRepository;
 
     /// <summary>
     /// Initializes a new instance of the AuthenticationService class.
@@ -19,25 +20,36 @@ public class AuthenticationService
     /// <param name="userManager">User manager for Identity operations.</param>
     /// <param name="signInManager">Sign-in manager for authentication.</param>
     /// <param name="userRepository">User repository for data access.</param>
+    /// <param name="guildRepository">Guild repository for data access.</param>
     public AuthenticationService(
         UserManager<User> userManager,
         SignInManager<User> signInManager,
-        UserRepository userRepository)
+        UserRepository userRepository,
+        GuildRepository guildRepository)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _userRepository = userRepository;
+        _guildRepository = guildRepository;
     }
 
     /// <summary>
-    /// Registers a new user with email, username, and password.
+    /// Registers a new user with email, username, password, and invitation code.
     /// </summary>
     /// <param name="email">User's email address.</param>
     /// <param name="username">User's display name.</param>
     /// <param name="password">User's password.</param>
+    /// <param name="invitationCode">Guild invitation code.</param>
     /// <returns>Result containing success status and any error messages.</returns>
-    public async Task<(bool Success, string[] Errors)> RegisterAsync(string email, string username, string password)
+    public async Task<(bool Success, string[] Errors)> RegisterAsync(string email, string username, string password, string invitationCode)
     {
+        // Validate invitation code and get guild
+        var guild = await _guildRepository.FindByInvitationCodeAsync(invitationCode);
+        if (guild == null)
+        {
+            return (false, new[] { "Invalid invitation code." });
+        }
+
         // Check if email already exists
         var existingUser = await _userRepository.FindByEmailAsync(email);
         if (existingUser != null)
@@ -45,13 +57,13 @@ public class AuthenticationService
             return (false, new[] { "Email is already registered." });
         }
 
-        // Create new user
+        // Create new user and assign to guild
         var user = new User
         {
             Email = email,
             Username = username,
             Role = "raider", // Default role
-            GuildId = null,
+            GuildId = guild.Id, // Assign to guild based on invitation code
             DkpBalance = 0,
             Active = true
         };

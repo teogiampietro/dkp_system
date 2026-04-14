@@ -23,8 +23,10 @@ public class DatabaseMigrator
 
         // Execute migrations in order (only if not already executed)
         await ExecuteMigrationAsync(connection, "001_initial_schema.sql");
+        await ExecuteMigrationAsync(connection, "005_add_invitation_code.sql");
         await ExecuteMigrationAsync(connection, "002_seed_guild.sql");
         await ExecuteMigrationAsync(connection, "003_seed_admin.sql");
+        await ExecuteMigrationAsync(connection, "004_auction_tables.sql");
         
         Console.WriteLine("✅ Database migrations completed successfully!");
     }

@@ -48,6 +48,8 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=dkp_system;Username=dkp_user;Password=dkp_password_change_in_production
+    volumes:
+      - dataprotection_keys:/app/DataProtection-Keys
     depends_on:
       postgres:
         condition: service_healthy
@@ -56,3 +58,4 @@ services:
 volumes:
   postgres_data:
   postgres_test_data:
+  dataprotection_keys:

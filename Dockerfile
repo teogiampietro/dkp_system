@@ -27,6 +27,9 @@ COPY --from=publish /app/publish .
 # Copy migrations folder explicitly
 COPY --from=build /src/DkpSystem/Migrations ./Migrations
 
+# Create directory for Data Protection keys (will be mounted as volume in production)
+RUN mkdir -p /app/DataProtection-Keys && chmod 755 /app/DataProtection-Keys
+
 # Set environment variables
 ENV ASPNETCORE_URLS=http://+:8080
 ENV ASPNETCORE_ENVIRONMENT=Production

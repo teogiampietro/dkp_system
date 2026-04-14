@@ -49,6 +49,13 @@
                             <ValidationMessage For="@(() => _model.ConfirmPassword)" />
                         </div>
 
+                        <div class="mb-3">
+                            <label for="invitationCode" class="form-label">Invitation Code</label>
+                            <InputText id="invitationCode" class="form-control" @bind-Value="_model.InvitationCode" placeholder="Enter your guild invitation code" />
+                            <ValidationMessage For="@(() => _model.InvitationCode)" />
+                            <small class="form-text text-muted">You need an invitation code from your guild to register.</small>
+                        </div>
+
                         <div class="d-grid gap-2">
                             <button type="submit" class="btn btn-primary" disabled="@_isProcessing">
                                 @if (_isProcessing)
@@ -94,7 +101,7 @@
                 return;
             }
 
-            var (success, errors) = await AuthService.RegisterAsync(_model.Email, _model.Username, _model.Password);
+            var (success, errors) = await AuthService.RegisterAsync(_model.Email, _model.Username, _model.Password, _model.InvitationCode);
 
             if (success)
             {
@@ -126,5 +133,8 @@
 
         [Required(ErrorMessage = "Please confirm your password")]
         public string ConfirmPassword { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Invitation code is required")]
+        public string InvitationCode { get; set; } = string.Empty;
     }
 }

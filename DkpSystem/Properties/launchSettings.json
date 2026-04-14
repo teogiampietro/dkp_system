@@ -27,6 +27,16 @@
           "ASPNETCORE_ENVIRONMENT": "Production"
         }
       },
+      "Docker Compose": {
+        "commandName": "DockerCompose",
+        "launchBrowser": true,
+        "launchUrl": "http://localhost:8080",
+        "environmentVariables": {},
+        "composeLaunchAction": "LaunchBrowser",
+        "composeLaunchServiceName": "app",
+        "composeLaunchUrl": "http://localhost:8080",
+        "composeProfile": ""
+      },
       "IIS Express": {
         "commandName": "IISExpress",
         "launchBrowser": true,

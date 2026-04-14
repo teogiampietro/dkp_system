@@ -34,18 +34,20 @@ public class AuthenticationTests
         // Arrange
         var factory = new DbConnectionFactory(_testConnectionString);
         var repository = new UserRepository(factory);
+        var guildRepository = new GuildRepository(factory);
         var store = new DapperUserStore(repository);
         
         var userManager = CreateUserManager(store);
         var signInManager = CreateSignInManager(userManager);
-        var authService = new AuthenticationService(userManager, signInManager, repository);
+        var authService = new AuthenticationService(userManager, signInManager, repository, guildRepository);
 
         var testEmail = $"test_{Guid.NewGuid()}@example.com";
         var testUsername = "TestUser";
         var testPassword = "Test123!";
+        var invitationCode = "MYGUILD2024"; // Default invitation code
 
         // Act
-        var (success, errors) = await authService.RegisterAsync(testEmail, testUsername, testPassword);
+        var (success, errors) = await authService.RegisterAsync(testEmail, testUsername, testPassword, invitationCode);
 
         // Assert
         Assert.True(success, $"Registration failed: {string.Join(", ", errors)}");
@@ -57,6 +59,7 @@ public class AuthenticationTests
         Assert.Equal("raider", user.Role);
         Assert.True(user.Active);
         Assert.Equal(0, user.DkpBalance);
+        Assert.NotNull(user.GuildId); // Should be assigned to a guild
 
         // Cleanup
         if (user != null)
@@ -74,20 +77,22 @@ public class AuthenticationTests
         // Arrange
         var factory = new DbConnectionFactory(_testConnectionString);
         var repository = new UserRepository(factory);
+        var guildRepository = new GuildRepository(factory);
         var store = new DapperUserStore(repository);
         
         var userManager = CreateUserManager(store);
         var signInManager = CreateSignInManager(userManager);
-        var authService = new AuthenticationService(userManager, signInManager, repository);
+        var authService = new AuthenticationService(userManager, signInManager, repository, guildRepository);
 
         var testEmail = $"duplicate_{Guid.NewGuid()}@example.com";
         var testPassword = "Test123!";
+        var invitationCode = "MYGUILD2024";
 
         // Create first user
-        await authService.RegisterAsync(testEmail, "User1", testPassword);
+        await authService.RegisterAsync(testEmail, "User1", testPassword, invitationCode);
 
         // Act - Try to create second user with same email
-        var (success, errors) = await authService.RegisterAsync(testEmail, "User2", testPassword);
+        var (success, errors) = await authService.RegisterAsync(testEmail, "User2", testPassword, invitationCode);
 
         // Assert
         Assert.False(success);
@@ -111,17 +116,19 @@ public class AuthenticationTests
         // Arrange
         var factory = new DbConnectionFactory(_testConnectionString);
         var repository = new UserRepository(factory);
+        var guildRepository = new GuildRepository(factory);
         var store = new DapperUserStore(repository);
         
         var userManager = CreateUserManager(store);
         var signInManager = CreateSignInManager(userManager);
-        var authService = new AuthenticationService(userManager, signInManager, repository);
+        var authService = new AuthenticationService(userManager, signInManager, repository, guildRepository);
 
         var testEmail = $"login_{Guid.NewGuid()}@example.com";
         var testPassword = "Test123!";
+        var invitationCode = "MYGUILD2024";
 
         // Create user
-        await authService.RegisterAsync(testEmail, "LoginUser", testPassword);
+        await authService.RegisterAsync(testEmail, "LoginUser", testPassword, invitationCode);
         await authService.LogoutAsync(); // Logout after registration
 
         // Act
@@ -148,18 +155,20 @@ public class AuthenticationTests
         // Arrange
         var factory = new DbConnectionFactory(_testConnectionString);
         var repository = new UserRepository(factory);
+        var guildRepository = new GuildRepository(factory);
         var store = new DapperUserStore(repository);
         
         var userManager = CreateUserManager(store);
         var signInManager = CreateSignInManager(userManager);
-        var authService = new AuthenticationService(userManager, signInManager, repository);
+        var authService = new AuthenticationService(userManager, signInManager, repository, guildRepository);
 
         var testEmail = $"wrongpass_{Guid.NewGuid()}@example.com";
         var correctPassword = "Test123!";
         var wrongPassword = "Wrong123!";
+        var invitationCode = "MYGUILD2024";
 
         // Create user
-        await authService.RegisterAsync(testEmail, "WrongPassUser", correctPassword);
+        await authService.RegisterAsync(testEmail, "WrongPassUser", correctPassword, invitationCode);
 
         // Act
         var (success, error) = await authService.LoginAsync(testEmail, wrongPassword);
@@ -187,17 +196,19 @@ public class AuthenticationTests
         // Arrange
         var factory = new DbConnectionFactory(_testConnectionString);
         var repository = new UserRepository(factory);
+        var guildRepository = new GuildRepository(factory);
         var store = new DapperUserStore(repository);
         
         var userManager = CreateUserManager(store);
         var signInManager = CreateSignInManager(userManager);
-        var authService = new AuthenticationService(userManager, signInManager, repository);
+        var authService = new AuthenticationService(userManager, signInManager, repository, guildRepository);
 
         var testEmail = $"CaseSensitive_{Guid.NewGuid()}@Example.COM";
         var testPassword = "Test123!";
+        var invitationCode = "MYGUILD2024";
 
         // Create user with mixed case email
-        await authService.RegisterAsync(testEmail, "CaseUser", testPassword);
+        await authService.RegisterAsync(testEmail, "CaseUser", testPassword, invitationCode);
         await authService.LogoutAsync();
 
         // Act - Try to login with different case variations
@@ -231,17 +242,19 @@ public class AuthenticationTests
         // Arrange
         var factory = new DbConnectionFactory(_testConnectionString);
         var repository = new UserRepository(factory);
+        var guildRepository = new GuildRepository(factory);
         var store = new DapperUserStore(repository);
         
         var userManager = CreateUserManager(store);
         var signInManager = CreateSignInManager(userManager);
-        var authService = new AuthenticationService(userManager, signInManager, repository);
+        var authService = new AuthenticationService(userManager, signInManager, repository, guildRepository);
 
         var testEmail = $"hash_{Guid.NewGuid()}@example.com";
         var testPassword = "Test123!";
+        var invitationCode = "MYGUILD2024";
 
         // Act
-        await authService.RegisterAsync(testEmail, "HashUser", testPassword);
+        await authService.RegisterAsync(testEmail, "HashUser", testPassword, invitationCode);
 
         // Assert
         var user = await repository.FindByEmailAsync(testEmail);
@@ -250,6 +263,81 @@ public class AuthenticationTests
         Assert.NotEmpty(user.PasswordHash);
         // Password hash should be significantly longer than the original password
         Assert.True(user.PasswordHash.Length > testPassword.Length * 2);
+
+        // Cleanup
+        if (user != null)
+        {
+            await repository.DeleteAsync(user.Id);
+        }
+    }
+
+    /// <summary>
+    /// Test: Register_WithInvalidInvitationCode_ReturnsError
+    /// </summary>
+    [Fact]
+    public async Task Register_WithInvalidInvitationCode_ReturnsError()
+    {
+        // Arrange
+        var factory = new DbConnectionFactory(_testConnectionString);
+        var repository = new UserRepository(factory);
+        var guildRepository = new GuildRepository(factory);
+        var store = new DapperUserStore(repository);
+        
+        var userManager = CreateUserManager(store);
+        var signInManager = CreateSignInManager(userManager);
+        var authService = new AuthenticationService(userManager, signInManager, repository, guildRepository);
+
+        var testEmail = $"invalid_{Guid.NewGuid()}@example.com";
+        var testPassword = "Test123!";
+        var invalidCode = "INVALID-CODE-12345";
+
+        // Act
+        var (success, errors) = await authService.RegisterAsync(testEmail, "InvalidUser", testPassword, invalidCode);
+
+        // Assert
+        Assert.False(success);
+        Assert.NotEmpty(errors);
+        Assert.Contains(errors, e => e.Contains("Invalid invitation code"));
+
+        // Verify user was not created
+        var user = await repository.FindByEmailAsync(testEmail);
+        Assert.Null(user);
+    }
+
+    /// <summary>
+    /// Test: Register_WithValidInvitationCode_AssignsUserToGuild
+    /// </summary>
+    [Fact]
+    public async Task Register_WithValidInvitationCode_AssignsUserToGuild()
+    {
+        // Arrange
+        var factory = new DbConnectionFactory(_testConnectionString);
+        var repository = new UserRepository(factory);
+        var guildRepository = new GuildRepository(factory);
+        var store = new DapperUserStore(repository);
+        
+        var userManager = CreateUserManager(store);
+        var signInManager = CreateSignInManager(userManager);
+        var authService = new AuthenticationService(userManager, signInManager, repository, guildRepository);
+
+        var testEmail = $"guild_{Guid.NewGuid()}@example.com";
+        var testPassword = "Test123!";
+        var invitationCode = "MYGUILD2024";
+
+        // Act
+        var (success, errors) = await authService.RegisterAsync(testEmail, "GuildUser", testPassword, invitationCode);
+
+        // Assert
+        Assert.True(success, $"Registration failed: {string.Join(", ", errors)}");
+        
+        var user = await repository.FindByEmailAsync(testEmail);
+        Assert.NotNull(user);
+        Assert.NotNull(user.GuildId);
+        
+        // Verify the guild exists and matches
+        var guild = await guildRepository.GetByIdAsync(user.GuildId.Value);
+        Assert.NotNull(guild);
+        Assert.Equal(invitationCode, guild.InvitationCode);
 
         // Cleanup
         if (user != null)

@@ -6,9 +6,17 @@ using DkpSystem.Models;
 using DkpSystem.Services;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure Data Protection to persist keys
+var dataProtectionPath = Path.Combine(builder.Environment.ContentRootPath, "DataProtection-Keys");
+Directory.CreateDirectory(dataProtectionPath);
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionPath))
+    .SetApplicationName("DkpSystem");
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -29,6 +37,7 @@ builder.Services.AddScoped<MemberRepository>();
 builder.Services.AddScoped<EventRepository>();
 builder.Services.AddScoped<AuctionRepository>();
 builder.Services.AddScoped<BidRepository>();
+builder.Services.AddScoped<GuildRepository>();
 
 // Register custom Identity store
 builder.Services.AddScoped<IUserStore<User>, DapperUserStore>();

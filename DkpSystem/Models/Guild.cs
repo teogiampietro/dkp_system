@@ -16,6 +16,11 @@ public class Guild
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the invitation code required to join this guild.
+    /// </summary>
+    public string InvitationCode { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets the date and time when the guild was created.
     /// </summary>
     public DateTime CreatedAt { get; set; }

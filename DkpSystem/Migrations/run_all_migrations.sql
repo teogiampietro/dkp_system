@@ -95,8 +95,8 @@ CREATE TABLE IF NOT EXISTS auction_bids (
 -- MIGRATION 002: Seed Default Guild
 -- ============================================
 
-INSERT INTO guilds (name) 
-VALUES ('My Guild')
+INSERT INTO guilds (name, invitation_code)
+VALUES ('My Guild', 'MYGUILD2024')
 ON CONFLICT DO NOTHING;
 
 -- ============================================
@@ -126,6 +126,36 @@ BEGIN
         now()
     )
     ON CONFLICT (email) DO NOTHING;
+END $$;
+
+-- ============================================
+-- MIGRATION 005: Add Invitation Code to Guilds
+-- ============================================
+
+-- Add invitation_code column to guilds table
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'guilds' AND column_name = 'invitation_code'
+    ) THEN
+        ALTER TABLE guilds ADD COLUMN invitation_code VARCHAR(100);
+        
+        -- Set a default invitation code for existing guilds
+        UPDATE guilds
+        SET invitation_code = 'CHANGE-ME-' || SUBSTRING(id::text, 1, 8)
+        WHERE invitation_code IS NULL;
+        
+        -- Make the column NOT NULL and UNIQUE
+        ALTER TABLE guilds
+        ALTER COLUMN invitation_code SET NOT NULL;
+        
+        ALTER TABLE guilds
+        ADD CONSTRAINT guilds_invitation_code_key UNIQUE (invitation_code);
+        
+        -- Create index for faster lookups during registration
+        CREATE INDEX idx_guilds_invitation_code ON guilds(invitation_code);
+    END IF;
 END $$;
 
 -- ============================================
