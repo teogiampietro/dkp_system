@@ -171,6 +171,23 @@ public class AuctionRepository
     }
 
     /// <summary>
+    /// Gets all unresolved items for an auction — items with no winner (no bids or explicitly skipped).
+    /// </summary>
+    /// <param name="auctionId">The auction ID.</param>
+    /// <returns>List of items without a winner.</returns>
+    public async Task<IEnumerable<AuctionItem>> GetUnresolvedItemsAsync(Guid auctionId)
+    {
+        const string sql = @"
+            SELECT id, auction_id, name, minimum_bid, delivered, delivered_at, delivered_by, winner_id, final_price, created_at
+            FROM auction_items
+            WHERE auction_id = @AuctionId AND winner_id IS NULL
+            ORDER BY created_at";
+
+        using var connection = await _connectionFactory.CreateConnectionAsync();
+        return await connection.QueryAsync<AuctionItem>(sql, new { AuctionId = auctionId });
+    }
+
+    /// <summary>
     /// Gets an auction item by ID.
     /// </summary>
     /// <param name="itemId">The item ID.</param>
