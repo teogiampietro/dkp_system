@@ -64,12 +64,12 @@
                         }
                     </div>
                     <div class="col-md-3">
-                        <strong>Closes at:</strong> @_auction.ClosesAt.ToLocalTime().ToString("g")
+                        <strong>Closes at:</strong> @_auction.ClosesAt.ToLocalTime().ToString("dd-MM-yyyy HH:mm")
                     </div>
                     @if (_auction.ClosedAt.HasValue)
                     {
                         <div class="col-md-3">
-                            <strong>Closed at:</strong> @_auction.ClosedAt.Value.ToLocalTime().ToString("g")
+                            <strong>Closed at:</strong> @_auction.ClosedAt.Value.ToLocalTime().ToString("dd-MM-yyyy HH:mm")
                         </div>
                     }
                     @if (_auction.Status == "open" && _currentUser != null)
@@ -187,6 +187,7 @@
                                     <div class="col-md-3">
                                         <select class="form-select" @bind="_bidTypes[item.Id]">
                                             <option value="main">Main</option>
+                                            <option value="collection">Collection</option>
                                             <option value="alt">Alt</option>
                                             <option value="greed">Greed</option>
                                         </select>
@@ -630,6 +631,7 @@
         return bidType.ToLower() switch
         {
             "main" => "bg-primary",
+            "collection" => "bg-success",
             "alt" => "bg-info",
             "greed" => "bg-secondary",
             _ => "bg-secondary"
