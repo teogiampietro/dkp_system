@@ -462,6 +462,15 @@ public class AuctionService
     {
         return await _auctionRepository.GetClosedAuctionsByGuildAsync(guildId);
     }
+
+    /// <summary>
+    /// Gets all unresolved items for a closed auction — items with no winner (no bids or explicitly skipped).
+    /// </summary>
+    /// <param name="auctionId">The auction ID.</param>
+    public async Task<IEnumerable<AuctionItem>> GetUnresolvedItemsAsync(Guid auctionId)
+    {
+        return await _auctionRepository.GetUnresolvedItemsAsync(auctionId);
+    }
 }
 
 /// <summary>

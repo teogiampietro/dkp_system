@@ -12,6 +12,7 @@
 @inject AuctionRepository AuctionRepository
 @inject UserRepository UserRepository
 @inject DbConnectionFactory DbConnectionFactory
+@inject IJSRuntime JSRuntime
 
 <PageTitle>@(_auction?.Name ?? "Auction")</PageTitle>
 
@@ -111,6 +112,12 @@
                                     Cancel Auction
                                 </button>
                             }
+                            @if (_auction.Status == "closed")
+                            {
+                                <button class="btn btn-info" @onclick="() => _showSummaryModal = true">
+                                    Resumen de Entrega
+                                </button>
+                            }
                         </div>
                     </Authorized>
                 </AuthorizeView>
@@ -122,6 +129,21 @@
             <div class="alert alert-info" role="alert">
                 @_actionMessage
             </div>
+        }
+
+        @* Re-auction callout for admins on closed auctions with unresolved items *@
+        @if (_auction.Status == "closed" && _isAdmin)
+        {
+            var unresolvedCount = _items.Count(i => !i.WinnerId.HasValue);
+            @if (unresolvedCount > 0)
+            {
+                <div class="alert alert-warning d-flex justify-content-between align-items-center" role="alert">
+                    <span><strong>@unresolvedCount item(s)</strong> were not delivered in this auction.</span>
+                    <a href="/admin/auctions/new?fromAuctionId=@_auction.Id" class="btn btn-warning btn-sm">
+                        Re-auction @unresolvedCount item(s) →
+                    </a>
+                </div>
+            }
         }
 
         @* Items List *@
@@ -169,6 +191,27 @@
                         @* Bidding interface for open auctions *@
                         @if (_auction.Status == "open" && !item.Delivered)
                         {
+                            @* Show current highest bid so raiders know what to beat *@
+                            @if (!_isAdmin)
+                            {
+                                <div class="mb-3">
+                                    @if (highestBid != null)
+                                    {
+                                        <div class="alert alert-secondary py-2 mb-0">
+                                            <strong>Current highest bid:</strong>
+                                            @highestBid.Bid.Amount DKP &nbsp;
+                                            <span class="badge @GetBidTypeBadgeClass(highestBid.Bid.BidType)">
+                                                @highestBid.Bid.BidType.ToUpper()
+                                            </span>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <p class="text-muted small mb-0">No bids placed yet on this item.</p>
+                                    }
+                                </div>
+                            }
+
                             <div class="border-top pt-3 mt-3">
                                 <h6>Place Your Bid</h6>
                                 @if (userBid != null)
@@ -293,6 +336,86 @@
             }
         }
     }
+
+    @if (_showSummaryModal)
+    {
+        <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5)">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Resumen de Entrega — @_auction.Name</h5>
+                        <button type="button" class="btn-close" @onclick="() => _showSummaryModal = false"></button>
+                    </div>
+                    <div class="modal-body">
+                        @{
+                            var pendingItems = _items
+                                .Where(i => !i.Delivered)
+                                .Select(i => (Item: i, TopBid: _itemBids.GetValueOrDefault(i.Id)?.FirstOrDefault()))
+                                .ToList();
+                            var deliveredItems = _items.Where(i => i.Delivered && i.WinnerId.HasValue).ToList();
+                            var skippedItems = _items.Where(i => i.Delivered && !i.WinnerId.HasValue).ToList();
+                        }
+                        @if (pendingItems.Any())
+                        {
+                            <h6 class="text-warning">⏳ Pendiente de entregar</h6>
+                            <table class="table table-sm">
+                                <thead><tr><th>Ítem</th><th>Ganador</th><th>DKP</th></tr></thead>
+                                <tbody>
+                                @foreach (var (item, topBid) in pendingItems)
+                                {
+                                    var winner = topBid != null ? _users.GetValueOrDefault(topBid.Bid.UserId) : null;
+                                    <tr>
+                                        <td>@item.Name</td>
+                                        <td>@(winner?.Username ?? "(sin puja)")</td>
+                                        <td>@(topBid?.Bid.Amount.ToString() ?? "-") DKP</td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        }
+                        @if (deliveredItems.Any())
+                        {
+                            <h6 class="text-success">✓ Ya entregado</h6>
+                            <table class="table table-sm">
+                                <thead><tr><th>Ítem</th><th>Ganador</th><th>DKP</th></tr></thead>
+                                <tbody>
+                                @foreach (var item in deliveredItems)
+                                {
+                                    var winner = _users.GetValueOrDefault(item.WinnerId!.Value);
+                                    <tr>
+                                        <td>@item.Name</td>
+                                        <td>@(winner?.Username ?? "Unknown")</td>
+                                        <td>@item.FinalPrice DKP</td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        }
+                        @if (skippedItems.Any())
+                        {
+                            <h6 class="text-secondary">— Omitidos</h6>
+                            <ul>
+                            @foreach (var item in skippedItems)
+                            {
+                                <li>@item.Name</li>
+                            }
+                            </ul>
+                        }
+                        @if (!pendingItems.Any() && !deliveredItems.Any() && !skippedItems.Any())
+                        {
+                            <p class="text-muted">No hay ítems en esta subasta.</p>
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-outline-secondary" @onclick="CopyToClipboard">
+                            @(_copiedToClipboard ? "✓ Copiado!" : "Copiar como texto")
+                        </button>
+                        <button class="btn btn-secondary" @onclick="() => _showSummaryModal = false">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 @code {
@@ -316,6 +439,8 @@
     private bool _isProcessing = false;
     private string _errorMessage = string.Empty;
     private string _actionMessage = string.Empty;
+    private bool _showSummaryModal = false;
+    private bool _copiedToClipboard = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -373,8 +498,8 @@
                 _totalActiveBids = await AuctionService.GetTotalActiveBidsAsync(userId, AuctionId);
             }
 
-            // Load bids for each item (if closed or admin)
-            if (_auction.Status == "closed" || _isAdmin)
+            // Load bids for each item (if closed, admin, or open — to show highest bid)
+            if (_auction.Status == "closed" || _isAdmin || _auction.Status == "open")
             {
                 foreach (var item in _items)
                 {
@@ -636,5 +761,51 @@
             "greed" => "bg-secondary",
             _ => "bg-secondary"
         };
+    }
+
+    private string GenerateSummaryText()
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"=== RESUMEN: {_auction!.Name} ===");
+
+        var pending = _items
+            .Where(i => !i.Delivered)
+            .Select(i => (Item: i, TopBid: _itemBids.GetValueOrDefault(i.Id)?.FirstOrDefault()))
+            .Where(x => x.TopBid != null)
+            .ToList();
+
+        if (pending.Any())
+        {
+            sb.AppendLine("\nPENDIENTE DE ENTREGAR:");
+            foreach (var (item, topBid) in pending)
+            {
+                var winner = _users.GetValueOrDefault(topBid!.Bid.UserId);
+                sb.AppendLine($"  • {item.Name} → {winner?.Username ?? "?"} ({topBid.Bid.Amount} DKP)");
+            }
+        }
+
+        var delivered = _items.Where(i => i.Delivered && i.WinnerId.HasValue).ToList();
+        if (delivered.Any())
+        {
+            sb.AppendLine("\nYA ENTREGADO:");
+            foreach (var item in delivered)
+            {
+                var winner = _users.GetValueOrDefault(item.WinnerId!.Value);
+                sb.AppendLine($"  ✓ {item.Name} → {winner?.Username ?? "?"} ({item.FinalPrice} DKP)");
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    private async Task CopyToClipboard()
+    {
+        var text = GenerateSummaryText();
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", text);
+        _copiedToClipboard = true;
+        StateHasChanged();
+        await Task.Delay(2000);
+        _copiedToClipboard = false;
+        StateHasChanged();
     }
 }

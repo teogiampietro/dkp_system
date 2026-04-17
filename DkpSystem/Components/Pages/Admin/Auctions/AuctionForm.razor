@@ -16,6 +16,13 @@
         <div class="col-md-10 offset-md-1">
             <h2>Create New Auction</h2>
 
+            @if (_preloadedItemCount > 0)
+            {
+                <div class="alert alert-info" role="alert">
+                    <strong>@_preloadedItemCount item(s) pre-loaded</strong> from the previous auction. Adjust minimum bids as needed before creating the new auction.
+                </div>
+            }
+
             @if (!string.IsNullOrEmpty(_errorMessage))
             {
                 <div class="alert alert-danger" role="alert">
@@ -107,15 +114,31 @@
     [CascadingParameter]
     private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
 
+    [SupplyParameterFromQuery]
+    public Guid? FromAuctionId { get; set; }
+
     private AuctionFormModel _model = new();
     private string _errorMessage = string.Empty;
     private string _successMessage = string.Empty;
     private bool _isSubmitting = false;
+    private int _preloadedItemCount = 0;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        // Start with one empty item
-        _model.Items.Add(new AuctionItemModel());
+        if (FromAuctionId.HasValue)
+        {
+            var skippedItems = (await AuctionService.GetUnresolvedItemsAsync(FromAuctionId.Value)).ToList();
+            foreach (var item in skippedItems)
+            {
+                _model.Items.Add(new AuctionItemModel { Name = item.Name, MinimumBid = item.MinimumBid });
+            }
+            _preloadedItemCount = skippedItems.Count;
+        }
+
+        if (_model.Items.Count == 0)
+        {
+            _model.Items.Add(new AuctionItemModel());
+        }
     }
 
     private void AddItem()
