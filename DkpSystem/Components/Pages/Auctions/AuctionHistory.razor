@@ -61,7 +61,7 @@
                                 <strong>@auction.Name</strong>
                             </td>
                             <td>
-                                @auction.ClosedAt?.ToLocalTime().ToString("g")
+                                @auction.ClosedAt?.ToLocalTime().ToString("dd-MM-yyyy HH:mm")
                             </td>
                             <td>
                                 @_auctionItemCounts.GetValueOrDefault(auction.Id, 0)

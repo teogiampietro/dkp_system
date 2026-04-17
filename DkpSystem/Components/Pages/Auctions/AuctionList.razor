@@ -58,7 +58,7 @@
                                         <span class="badge bg-success">OPEN</span>
                                     </p>
                                     <p class="mb-2">
-                                        <strong>Closes at:</strong> @auction.ClosesAt.ToLocalTime().ToString("g")
+                                        <strong>Closes at:</strong> @auction.ClosesAt.ToLocalTime().ToString("dd-MM-yyyy HH:mm")
                                     </p>
                                     <p class="mb-2">
                                         <strong>Items:</strong> @_auctionItemCounts.GetValueOrDefault(auction.Id, 0)
@@ -131,7 +131,7 @@
                                         <span class="badge bg-secondary">CLOSED</span>
                                     </p>
                                     <p class="mb-2">
-                                        <strong>Closed at:</strong> @auction.ClosedAt?.ToLocalTime().ToString("g")
+                                        <strong>Closed at:</strong> @auction.ClosedAt?.ToLocalTime().ToString("dd-MM-yyyy HH:mm")
                                     </p>
                                     <p class="mb-2">
                                         <strong>Items:</strong> @_auctionItemCounts.GetValueOrDefault(auction.Id, 0)

@@ -205,7 +205,7 @@ public class MemberService
     }
 
     /// <summary>
-    /// Gets the won items history for a specific member (DKP spendings).
+    /// Gets the won items history for a specific member (DKP spending).
     /// </summary>
     /// <param name="userId">The user ID.</param>
     /// <returns>A list of won auction items.</returns>

@@ -105,7 +105,7 @@
                             <div class="mb-3">
                                 <label class="form-label">Created At</label>
                                 <input type="text" class="form-control" 
-                                       value="@_member.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")" disabled />
+                                       value="@_member.CreatedAt.ToString("dd-MM-yyyy HH:mm:ss")" disabled />
                             </div>
 
                             <button type="submit" class="btn btn-primary" disabled="@_saving">
@@ -149,7 +149,7 @@
                                                 <td>@earning.EventName</td>
                                                 <td>@earning.Reason</td>
                                                 <td><strong>+@earning.DkpAmount</strong></td>
-                                                <td>@earning.EarnedAt.ToString("yyyy-MM-dd")</td>
+                                                <td>@earning.EarnedAt.ToLocalTime().ToString("dd-MM-yyyy")</td>
                                             </tr>
                                         }
                                     </tbody>
@@ -187,7 +187,7 @@
                                                 <td>@item.AuctionName</td>
                                                 <td>@item.ItemName</td>
                                                 <td><strong>-@item.DkpPaid</strong></td>
-                                                <td>@item.WonAt.ToString("yyyy-MM-dd")</td>
+                                                <td>@item.WonAt.ToLocalTime().ToString("dd-MM-yyyy")</td>
                                             </tr>
                                         }
                                     </tbody>

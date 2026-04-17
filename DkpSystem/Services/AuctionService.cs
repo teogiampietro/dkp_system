@@ -211,10 +211,10 @@ public class AuctionService
         }
 
         // Validate bid type
-        var validBidTypes = new[] { "main", "alt", "greed" };
+        var validBidTypes = new[] { "main", "collection", "alt", "greed" };
         if (!validBidTypes.Contains(bidType.ToLower()))
         {
-            return (false, "Invalid bid type. Must be 'main', 'alt', or 'greed'.");
+            return (false, "Invalid bid type. Must be 'main', 'collection', 'alt', or 'greed'.");
         }
 
         // Get user's current balance
@@ -400,9 +400,10 @@ public class AuctionService
         return bidType.ToLower() switch
         {
             "main" => 1,
-            "alt" => 2,
-            "greed" => 3,
-            _ => 4
+            "collection" => 2,
+            "alt" => 3,
+            "greed" => 4,
+            _ => 5
         };
     }
 
