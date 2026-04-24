@@ -43,22 +43,20 @@ window.initAuctionPasteZone = function (zoneId, dotNetHelper, itemIndex) {
     zone.addEventListener('paste', zone._pasteHandler);
 };
 
+const BENEFIT_TIERS = /^\[(Normal|Uncommon|Rare|Legendary|Epic)\]/i;
+
 async function extractItemNameFromDataUrl(dataUrl) {
     if (typeof Tesseract === 'undefined') return '';
 
     const img = await loadImage(dataUrl);
 
-    // Crop top 25% starting from y=0. Item names appear anywhere in this range
-    // depending on whether the screenshot includes an icon above the name or not.
-    const cropHeight = Math.max(Math.floor(img.height * 0.25), 80);
-
-    // Scale up 2x so Tesseract gets larger text — significantly improves accuracy
+    // Process the full image — name is at top, benefits ([Rare]/[Legendary]/etc.) at bottom
     const scale = 2;
     const canvas = document.createElement('canvas');
     canvas.width = img.width * scale;
-    canvas.height = cropHeight * scale;
+    canvas.height = img.height * scale;
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0, img.width, cropHeight, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, canvas.width, canvas.height);
 
     preprocessCanvasForOcr(ctx, canvas.width, canvas.height);
 
@@ -67,14 +65,17 @@ async function extractItemNameFromDataUrl(dataUrl) {
         logger: () => {}
     });
 
-    // Item names never contain a colon (unlike all stat lines: "Base Score: 128").
-    // Find the first line that has letters and no colon — that's the item name.
     const lines = (data.text || '').split('\n').map(l => l.trim()).filter(l => l.length > 2);
+
+    // Item name: first line with letters and no colon (stats always have "Label: value")
     const nameLine = lines.find(l => /[a-zA-Z]/.test(l) && !l.includes(':')) || '';
-
     if (nameLine.length < 3) return '';
+    const name = nameLine.replace(/^[^a-zA-Z\[]+|[^a-zA-Z0-9\]\s]+$/g, '').trim();
 
-    return nameLine.replace(/^[^a-zA-Z]+|[^a-zA-Z0-9\s]+$/g, '').trim();
+    // Benefits: lines starting with [Normal], [Uncommon], [Rare], [Legendary], [Epic]
+    const benefits = lines.filter(l => BENEFIT_TIERS.test(l));
+
+    return benefits.length > 0 ? [name, ...benefits].join(', ') : name;
 }
 
 // Converts to grayscale and binarizes: colored text on dark background becomes
