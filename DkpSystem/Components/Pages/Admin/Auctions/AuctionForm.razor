@@ -73,8 +73,24 @@
                                 <div class="card-body">
                                     <div class="row g-2">
                                         <div class="col-md-5">
-                                            <label class="form-label">Item Name</label>
-                                            <input type="text" class="form-control" @bind="item.Name" placeholder="e.g., Legendary Sword" />
+                                            <label class="form-label">
+                                                Item Name
+                                                @if (item.IsOcrPending)
+                                                {
+                                                    <span class="spinner-border spinner-border-sm ms-2 text-secondary"
+                                                          role="status" title="Detecting item name..."></span>
+                                                }
+                                                else if (item.IsOcrDetected)
+                                                {
+                                                    <span class="badge bg-success ms-2" title="Auto-detected from screenshot">
+                                                        auto-detected
+                                                    </span>
+                                                }
+                                            </label>
+                                            <input type="text" class="form-control"
+                                                   @bind="item.Name"
+                                                   @onfocus="() => { item.IsOcrDetected = false; StateHasChanged(); }"
+                                                   placeholder="e.g., Legendary Sword" />
                                         </div>
                                         <div class="col-md-3">
                                             <label class="form-label">Minimum Bid (DKP)</label>
@@ -197,11 +213,31 @@
     }
 
     [JSInvokable]
-    public void OnImagePasted(int itemIndex, string dataUrl, string mimeType)
+    public void OnImagePasted(int itemIndex, string dataUrl, string mimeType, string suggestedName)
     {
         if (itemIndex < 0 || itemIndex >= _model.Items.Count) return;
-        _model.Items[itemIndex].ImageDataUrl = dataUrl;
-        _model.Items[itemIndex].ImageMimeType = mimeType;
+        var item = _model.Items[itemIndex];
+        item.ImageDataUrl = dataUrl;
+        item.ImageMimeType = mimeType;
+        item.IsOcrPending = true;
+        item.IsOcrDetected = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public void OnOcrCompleted(int itemIndex, string suggestedName)
+    {
+        if (itemIndex < 0 || itemIndex >= _model.Items.Count) return;
+        var item = _model.Items[itemIndex];
+        item.IsOcrPending = false;
+
+        if (!string.IsNullOrWhiteSpace(suggestedName) &&
+            System.Text.RegularExpressions.Regex.IsMatch(item.Name, @"^Item \d+$"))
+        {
+            item.Name = suggestedName;
+            item.IsOcrDetected = true;
+        }
+
         InvokeAsync(StateHasChanged);
     }
 
@@ -227,6 +263,8 @@
     {
         _model.Items[index].ImageDataUrl = null;
         _model.Items[index].ImageMimeType = null;
+        _model.Items[index].IsOcrDetected = false;
+        _model.Items[index].IsOcrPending = false;
     }
 
     private async Task HandleSubmit()
@@ -361,5 +399,7 @@
         public int MinimumBid { get; set; } = 10;
         public string? ImageDataUrl { get; set; }
         public string? ImageMimeType { get; set; }
+        public bool IsOcrPending { get; set; } = false;
+        public bool IsOcrDetected { get; set; } = false;
     }
 }
