@@ -87,15 +87,15 @@ public class AuctionTests : IAsyncLifetime
     public async Task CreateAuction_WithDuplicateItemNames_IsRejected()
     {
         // Arrange
-        var items = new List<(string Name, int MinimumBid)>
+        var items = new List<(string Name, int MinimumBid, string? ImageUrl)>
         {
-            ("Sword", 10),
-            ("Shield", 15),
-            ("Sword", 20) // Duplicate
+            ("Sword", 10, null),
+            ("Shield", 15, null),
+            ("Sword", 20, null) // Duplicate
         };
 
         // Act
-        var result = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", 30, _testAdminId, items);
+        var result = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", DateTime.UtcNow.AddMinutes(30), _testAdminId, items);
 
         // Assert
         Assert.False(result.Success);
@@ -103,35 +103,34 @@ public class AuctionTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task StartAuction_SetsStatusToOpenAndCalculatesClosesAt()
+    public async Task StartAuction_SetsStatusToOpenAndPreservesClosesAt()
     {
         // Arrange
-        var items = new List<(string Name, int MinimumBid)> { ("Sword", 10) };
-        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", 30, _testAdminId, items);
+        var expectedClosesAt = DateTime.UtcNow.AddMinutes(30);
+        var items = new List<(string Name, int MinimumBid, string? ImageUrl)> { ("Sword", 10, null) };
+        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", expectedClosesAt, _testAdminId, items);
         Assert.True(createResult.Success);
         var auctionId = createResult.Auction!.Id;
 
         // Act
-        var startTime = DateTime.UtcNow;
-        var result = await _auctionService.StartAuctionAsync(auctionId, 30);
+        var result = await _auctionService.StartAuctionAsync(auctionId);
 
         // Assert
         Assert.True(result.Success);
         var auction = await _auctionRepository.GetAuctionByIdAsync(auctionId);
         Assert.NotNull(auction);
         Assert.Equal("open", auction.Status);
-        Assert.True(auction.ClosesAt > startTime);
-        Assert.True(auction.ClosesAt <= startTime.AddMinutes(31)); // Allow 1 minute tolerance
+        Assert.True(Math.Abs((auction.ClosesAt - expectedClosesAt.ToUniversalTime()).TotalSeconds) < 2);
     }
 
     [Fact]
     public async Task CloseAuctionEarly_SetsStatusToClosedImmediately()
     {
         // Arrange
-        var items = new List<(string Name, int MinimumBid)> { ("Sword", 10) };
-        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", 30, _testAdminId, items);
+        var items = new List<(string Name, int MinimumBid, string? ImageUrl)> { ("Sword", 10, null) };
+        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", DateTime.UtcNow.AddMinutes(30), _testAdminId, items);
         var auctionId = createResult.Auction!.Id;
-        await _auctionService.StartAuctionAsync(auctionId, 30);
+        await _auctionService.StartAuctionAsync(auctionId);
 
         // Act
         var result = await _auctionService.CloseAuctionAsync(auctionId);
@@ -148,10 +147,10 @@ public class AuctionTests : IAsyncLifetime
     public async Task PlaceBid_BelowMinimumBid_IsRejected()
     {
         // Arrange
-        var items = new List<(string Name, int MinimumBid)> { ("Sword", 50) };
-        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", 30, _testAdminId, items);
+        var items = new List<(string Name, int MinimumBid, string? ImageUrl)> { ("Sword", 50, null) };
+        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", DateTime.UtcNow.AddMinutes(30), _testAdminId, items);
         var auctionId = createResult.Auction!.Id;
-        await _auctionService.StartAuctionAsync(auctionId, 30);
+        await _auctionService.StartAuctionAsync(auctionId);
         var auctionItems = await _auctionRepository.GetAuctionItemsAsync(auctionId);
         var itemId = auctionItems.First().Id;
 
@@ -167,10 +166,10 @@ public class AuctionTests : IAsyncLifetime
     public async Task PlaceBid_ThatExceedsRaiderBalance_IsRejected()
     {
         // Arrange
-        var items = new List<(string Name, int MinimumBid)> { ("Sword", 10) };
-        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", 30, _testAdminId, items);
+        var items = new List<(string Name, int MinimumBid, string? ImageUrl)> { ("Sword", 10, null) };
+        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", DateTime.UtcNow.AddMinutes(30), _testAdminId, items);
         var auctionId = createResult.Auction!.Id;
-        await _auctionService.StartAuctionAsync(auctionId, 30);
+        await _auctionService.StartAuctionAsync(auctionId);
         var auctionItems = await _auctionRepository.GetAuctionItemsAsync(auctionId);
         var itemId = auctionItems.First().Id;
 
@@ -186,14 +185,14 @@ public class AuctionTests : IAsyncLifetime
     public async Task PlaceBid_WhereTotalActiveBidsExceedBalance_IsRejected()
     {
         // Arrange
-        var items = new List<(string Name, int MinimumBid)>
+        var items = new List<(string Name, int MinimumBid, string? ImageUrl)>
         {
-            ("Sword", 10),
-            ("Shield", 10)
+            ("Sword", 10, null),
+            ("Shield", 10, null)
         };
-        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", 30, _testAdminId, items);
+        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", DateTime.UtcNow.AddMinutes(30), _testAdminId, items);
         var auctionId = createResult.Auction!.Id;
-        await _auctionService.StartAuctionAsync(auctionId, 30);
+        await _auctionService.StartAuctionAsync(auctionId);
         var auctionItems = (await _auctionRepository.GetAuctionItemsAsync(auctionId)).ToList();
 
         // Act - Raider2 has 300 DKP, bid 200 on first item, then try 150 on second (total 350)
@@ -209,10 +208,10 @@ public class AuctionTests : IAsyncLifetime
     public async Task UpdateBid_WhileAuctionIsOpen_Succeeds()
     {
         // Arrange
-        var items = new List<(string Name, int MinimumBid)> { ("Sword", 10) };
-        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", 30, _testAdminId, items);
+        var items = new List<(string Name, int MinimumBid, string? ImageUrl)> { ("Sword", 10, null) };
+        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", DateTime.UtcNow.AddMinutes(30), _testAdminId, items);
         var auctionId = createResult.Auction!.Id;
-        await _auctionService.StartAuctionAsync(auctionId, 30);
+        await _auctionService.StartAuctionAsync(auctionId);
         var auctionItems = await _auctionRepository.GetAuctionItemsAsync(auctionId);
         var itemId = auctionItems.First().Id;
 
@@ -234,10 +233,10 @@ public class AuctionTests : IAsyncLifetime
     public async Task RetractBid_WhileAuctionIsOpen_Succeeds()
     {
         // Arrange
-        var items = new List<(string Name, int MinimumBid)> { ("Sword", 10) };
-        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", 30, _testAdminId, items);
+        var items = new List<(string Name, int MinimumBid, string? ImageUrl)> { ("Sword", 10, null) };
+        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", DateTime.UtcNow.AddMinutes(30), _testAdminId, items);
         var auctionId = createResult.Auction!.Id;
-        await _auctionService.StartAuctionAsync(auctionId, 30);
+        await _auctionService.StartAuctionAsync(auctionId);
         var auctionItems = await _auctionRepository.GetAuctionItemsAsync(auctionId);
         var itemId = auctionItems.First().Id;
 
@@ -257,10 +256,10 @@ public class AuctionTests : IAsyncLifetime
     public async Task PlaceBid_OnClosedAuction_IsRejected()
     {
         // Arrange
-        var items = new List<(string Name, int MinimumBid)> { ("Sword", 10) };
-        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", 30, _testAdminId, items);
+        var items = new List<(string Name, int MinimumBid, string? ImageUrl)> { ("Sword", 10, null) };
+        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", DateTime.UtcNow.AddMinutes(30), _testAdminId, items);
         var auctionId = createResult.Auction!.Id;
-        await _auctionService.StartAuctionAsync(auctionId, 30);
+        await _auctionService.StartAuctionAsync(auctionId);
         await _auctionService.CloseAuctionAsync(auctionId);
         var auctionItems = await _auctionRepository.GetAuctionItemsAsync(auctionId);
         var itemId = auctionItems.First().Id;
@@ -277,10 +276,10 @@ public class AuctionTests : IAsyncLifetime
     public async Task GetAuctionDetail_WhenClosed_RevealsAllBidsSortedByPriorityAndAmount()
     {
         // Arrange
-        var items = new List<(string Name, int MinimumBid)> { ("Sword", 10) };
-        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", 30, _testAdminId, items);
+        var items = new List<(string Name, int MinimumBid, string? ImageUrl)> { ("Sword", 10, null) };
+        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", DateTime.UtcNow.AddMinutes(30), _testAdminId, items);
         var auctionId = createResult.Auction!.Id;
-        await _auctionService.StartAuctionAsync(auctionId, 30);
+        await _auctionService.StartAuctionAsync(auctionId);
         var auctionItems = await _auctionRepository.GetAuctionItemsAsync(auctionId);
         var itemId = auctionItems.First().Id;
 
@@ -305,10 +304,10 @@ public class AuctionTests : IAsyncLifetime
     public async Task SortBids_WithSameAmount_AppliesBidTypePriority_MainBeforeAltBeforeGreed()
     {
         // Arrange
-        var items = new List<(string Name, int MinimumBid)> { ("Sword", 10) };
-        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", 30, _testAdminId, items);
+        var items = new List<(string Name, int MinimumBid, string? ImageUrl)> { ("Sword", 10, null) };
+        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", DateTime.UtcNow.AddMinutes(30), _testAdminId, items);
         var auctionId = createResult.Auction!.Id;
-        await _auctionService.StartAuctionAsync(auctionId, 30);
+        await _auctionService.StartAuctionAsync(auctionId);
         var auctionItems = await _auctionRepository.GetAuctionItemsAsync(auctionId);
         var itemId = auctionItems.First().Id;
 
@@ -336,10 +335,10 @@ public class AuctionTests : IAsyncLifetime
     public async Task SortBids_BidTypePriority_OverridesAmount_MainBeatsHigherAltBid()
     {
         // Arrange
-        var items = new List<(string Name, int MinimumBid)> { ("Sword", 10) };
-        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", 30, _testAdminId, items);
+        var items = new List<(string Name, int MinimumBid, string? ImageUrl)> { ("Sword", 10, null) };
+        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", DateTime.UtcNow.AddMinutes(30), _testAdminId, items);
         var auctionId = createResult.Auction!.Id;
-        await _auctionService.StartAuctionAsync(auctionId, 30);
+        await _auctionService.StartAuctionAsync(auctionId);
         var auctionItems = await _auctionRepository.GetAuctionItemsAsync(auctionId);
         var itemId = auctionItems.First().Id;
 
@@ -364,10 +363,10 @@ public class AuctionTests : IAsyncLifetime
     public async Task ResolveTie_WithSameAmountAndBidType_UsesBidTimestamp()
     {
         // Arrange
-        var items = new List<(string Name, int MinimumBid)> { ("Sword", 10) };
-        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", 30, _testAdminId, items);
+        var items = new List<(string Name, int MinimumBid, string? ImageUrl)> { ("Sword", 10, null) };
+        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", DateTime.UtcNow.AddMinutes(30), _testAdminId, items);
         var auctionId = createResult.Auction!.Id;
-        await _auctionService.StartAuctionAsync(auctionId, 30);
+        await _auctionService.StartAuctionAsync(auctionId);
         var auctionItems = await _auctionRepository.GetAuctionItemsAsync(auctionId);
         var itemId = auctionItems.First().Id;
 
@@ -392,10 +391,10 @@ public class AuctionTests : IAsyncLifetime
     public async Task DeliverItem_DeductsDkpFromWinnerWithinTransaction()
     {
         // Arrange
-        var items = new List<(string Name, int MinimumBid)> { ("Sword", 10) };
-        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", 30, _testAdminId, items);
+        var items = new List<(string Name, int MinimumBid, string? ImageUrl)> { ("Sword", 10, null) };
+        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", DateTime.UtcNow.AddMinutes(30), _testAdminId, items);
         var auctionId = createResult.Auction!.Id;
-        await _auctionService.StartAuctionAsync(auctionId, 30);
+        await _auctionService.StartAuctionAsync(auctionId);
         var auctionItems = (await _auctionRepository.GetAuctionItemsAsync(auctionId)).ToList();
         var itemId = auctionItems[0].Id;
 
@@ -423,10 +422,10 @@ public class AuctionTests : IAsyncLifetime
     public async Task DeliverItem_WhenWinnerBalanceWouldGoNegative_IsBlockedWithDescriptiveError()
     {
         // Arrange
-        var items = new List<(string Name, int MinimumBid)> { ("Sword", 10) };
-        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", 30, _testAdminId, items);
+        var items = new List<(string Name, int MinimumBid, string? ImageUrl)> { ("Sword", 10, null) };
+        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", DateTime.UtcNow.AddMinutes(30), _testAdminId, items);
         var auctionId = createResult.Auction!.Id;
-        await _auctionService.StartAuctionAsync(auctionId, 30);
+        await _auctionService.StartAuctionAsync(auctionId);
         var auctionItems = await _auctionRepository.GetAuctionItemsAsync(auctionId);
         var itemId = auctionItems.First().Id;
 
@@ -451,8 +450,8 @@ public class AuctionTests : IAsyncLifetime
     public async Task CancelAuction_WhilePending_DiscardsBidsAndDeductsNoDkp()
     {
         // Arrange
-        var items = new List<(string Name, int MinimumBid)> { ("Sword", 10) };
-        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", 30, _testAdminId, items);
+        var items = new List<(string Name, int MinimumBid, string? ImageUrl)> { ("Sword", 10, null) };
+        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", DateTime.UtcNow.AddMinutes(30), _testAdminId, items);
         var auctionId = createResult.Auction!.Id;
 
         // Act
@@ -469,10 +468,10 @@ public class AuctionTests : IAsyncLifetime
     public async Task CancelAuction_WhileOpen_DiscardsBidsAndDeductsNoDkp()
     {
         // Arrange
-        var items = new List<(string Name, int MinimumBid)> { ("Sword", 10) };
-        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", 30, _testAdminId, items);
+        var items = new List<(string Name, int MinimumBid, string? ImageUrl)> { ("Sword", 10, null) };
+        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", DateTime.UtcNow.AddMinutes(30), _testAdminId, items);
         var auctionId = createResult.Auction!.Id;
-        await _auctionService.StartAuctionAsync(auctionId, 30);
+        await _auctionService.StartAuctionAsync(auctionId);
         var auctionItems = await _auctionRepository.GetAuctionItemsAsync(auctionId);
         var itemId = auctionItems.First().Id;
 
@@ -502,10 +501,10 @@ public class AuctionTests : IAsyncLifetime
     public async Task CancelAuction_WhileClosed_IsRejected()
     {
         // Arrange
-        var items = new List<(string Name, int MinimumBid)> { ("Sword", 10) };
-        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", 30, _testAdminId, items);
+        var items = new List<(string Name, int MinimumBid, string? ImageUrl)> { ("Sword", 10, null) };
+        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", DateTime.UtcNow.AddMinutes(30), _testAdminId, items);
         var auctionId = createResult.Auction!.Id;
-        await _auctionService.StartAuctionAsync(auctionId, 30);
+        await _auctionService.StartAuctionAsync(auctionId);
         await _auctionService.CloseAuctionAsync(auctionId);
 
         // Act
@@ -520,10 +519,10 @@ public class AuctionTests : IAsyncLifetime
     public async Task AuctionHistory_IsVisibleToAllAuthenticatedUsers()
     {
         // Arrange
-        var items = new List<(string Name, int MinimumBid)> { ("Sword", 10) };
-        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", 30, _testAdminId, items);
+        var items = new List<(string Name, int MinimumBid, string? ImageUrl)> { ("Sword", 10, null) };
+        var createResult = await _auctionService.CreateAuctionAsync(_testGuildId, "Test Auction", DateTime.UtcNow.AddMinutes(30), _testAdminId, items);
         var auctionId = createResult.Auction!.Id;
-        await _auctionService.StartAuctionAsync(auctionId, 30);
+        await _auctionService.StartAuctionAsync(auctionId);
         await _auctionService.CloseAuctionAsync(auctionId);
 
         // Act

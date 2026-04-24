@@ -128,12 +128,65 @@ public class EventRepository
     /// <param name="attendeeIds">The list of user IDs who attended.</param>
     public async Task SaveAttendeesAsync(Guid eventId, IEnumerable<Guid> attendeeIds)
     {
+        var ids = attendeeIds.ToList();
+        if (ids.Count == 0) return;
+
         using var connection = await _connectionFactory.CreateConnectionAsync();
-        
-        // Store attendees in a temporary table or use a JSON column
-        // For now, we'll track attendees through the reward lines they receive
-        // This is handled in the EventService when awards are created
-        await Task.CompletedTask;
+        using var transaction = connection.BeginTransaction();
+
+        try
+        {
+            const string sql = @"
+                INSERT INTO event_attendees (event_id, user_id)
+                VALUES (@EventId, @UserId)
+                ON CONFLICT DO NOTHING";
+
+            foreach (var userId in ids)
+            {
+                await connection.ExecuteAsync(sql, new { EventId = eventId, UserId = userId }, transaction);
+            }
+
+            transaction.Commit();
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Gets the pre-confirmed attendees for an event as saved at creation time.
+    /// Falls back to all active guild members if no attendees were recorded.
+    /// </summary>
+    /// <param name="eventId">The event ID.</param>
+    /// <param name="guildId">The guild ID used as fallback.</param>
+    /// <returns>A list of attendees for the event.</returns>
+    public async Task<IEnumerable<User>> GetEventAttendeesAsync(Guid eventId, Guid guildId)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync();
+
+        const string sql = @"
+            SELECT u.id, u.email, u.username, u.password_hash, u.role, u.guild_id, u.dkp_balance, u.active, u.created_at
+            FROM users u
+            INNER JOIN event_attendees ea ON u.id = ea.user_id
+            WHERE ea.event_id = @EventId
+            ORDER BY u.username";
+
+        var attendees = (await connection.QueryAsync<User>(sql, new { EventId = eventId })).ToList();
+
+        if (attendees.Count > 0)
+        {
+            return attendees;
+        }
+
+        // Fallback for events created before attendee tracking was added
+        if (guildId != Guid.Empty)
+        {
+            return await GetActiveGuildMembersAsync(guildId);
+        }
+
+        return await GetAllActiveMembersAsync();
     }
 
     /// <summary>

@@ -6,8 +6,11 @@
 @attribute [Authorize(Roles = "admin")]
 @rendermode InteractiveServer
 @inject AuctionService AuctionService
+@inject ImageStorageService ImageStorageService
 @inject UserRepository UserRepository
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@implements IDisposable
 
 <PageTitle>Create Auction</PageTitle>
 
@@ -50,36 +53,64 @@
                         </div>
 
                         <div class="mb-3">
-                            <label for="duration" class="form-label">Duration (minutes)</label>
-                            <InputNumber id="duration" class="form-control" @bind-Value="_model.DurationMinutes" />
-                            <ValidationMessage For="@(() => _model.DurationMinutes)" />
-                            <small class="form-text text-muted">How long raiders will have to place their bids.</small>
+                            <label for="closesAt" class="form-label">Closes At</label>
+                            <input type="datetime-local" id="closesAt" class="form-control"
+                                   value="@_model.ClosesAt.ToString("yyyy-MM-ddTHH:mm")"
+                                   @onchange="e => { var v = e.Value?.ToString(); if (!string.IsNullOrEmpty(v) && DateTime.TryParse(v, out var dt)) _model.ClosesAt = dt; }" />
+                            <small class="form-text text-muted">Date and time when bidding closes.</small>
                         </div>
 
                         <hr />
 
                         <h4>Items</h4>
-                        <p class="text-muted">Add items that will be auctioned. Each item must have a unique name and a minimum bid.</p>
+                        <p class="text-muted">Add items that will be auctioned. Paste a screenshot (Ctrl+V) on each item to attach an image.</p>
 
                         @for (int i = 0; i < _model.Items.Count; i++)
                         {
                             var index = i;
+                            var item = _model.Items[index];
                             <div class="card mb-2">
                                 <div class="card-body">
-                                    <div class="row">
-                                        <div class="col-md-6">
+                                    <div class="row g-2">
+                                        <div class="col-md-5">
                                             <label class="form-label">Item Name</label>
-                                            <input type="text" class="form-control" @bind="_model.Items[index].Name" placeholder="e.g., Legendary Sword" />
+                                            <input type="text" class="form-control" @bind="item.Name" placeholder="e.g., Legendary Sword" />
                                         </div>
-                                        <div class="col-md-4">
+                                        <div class="col-md-3">
                                             <label class="form-label">Minimum Bid (DKP)</label>
-                                            <input type="number" class="form-control" @bind="_model.Items[index].MinimumBid" min="1" />
+                                            <input type="number" class="form-control" @bind="item.MinimumBid" min="1" />
                                         </div>
                                         <div class="col-md-2 d-flex align-items-end">
                                             <button type="button" class="btn btn-danger w-100" @onclick="() => RemoveItem(index)">
                                                 Remove
                                             </button>
                                         </div>
+                                    </div>
+
+                                    @* Paste zone *@
+                                    <div class="mt-2">
+                                        @if (item.ImageDataUrl != null)
+                                        {
+                                            <div class="d-flex align-items-start gap-2">
+                                                <img src="@item.ImageDataUrl"
+                                                     alt="Item preview"
+                                                     style="max-height:120px; max-width:100%; border-radius:4px; border:1px solid #dee2e6;" />
+                                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                        @onclick="() => ClearImage(index)">
+                                                    ✕ Remove image
+                                                </button>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div id="paste-zone-@index"
+                                                 tabindex="0"
+                                                 class="paste-zone"
+                                                 style="border:2px dashed #adb5bd; border-radius:6px; padding:12px 16px; color:#6c757d; cursor:pointer; outline:none; user-select:none;"
+                                                 title="Click here and press Ctrl+V to paste a screenshot">
+                                                📋 Click here and press <strong>Ctrl+V</strong> to paste a screenshot
+                                            </div>
+                                        }
                                     </div>
                                 </div>
                             </div>
@@ -99,8 +130,12 @@
                                 @if (_isSubmitting)
                                 {
                                     <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                    <span>@_submitStatus</span>
                                 }
-                                Create Auction
+                                else
+                                {
+                                    <span>Create Auction</span>
+                                }
                             </button>
                         </div>
                     </EditForm>
@@ -120,11 +155,15 @@
     private AuctionFormModel _model = new();
     private string _errorMessage = string.Empty;
     private string _successMessage = string.Empty;
+    private string _submitStatus = string.Empty;
     private bool _isSubmitting = false;
     private int _preloadedItemCount = 0;
+    private DotNetObjectReference<AuctionForm>? _dotNetRef;
 
     protected override async Task OnInitializedAsync()
     {
+        _dotNetRef = DotNetObjectReference.Create(this);
+
         if (FromAuctionId.HasValue)
         {
             var skippedItems = (await AuctionService.GetUnresolvedItemsAsync(FromAuctionId.Value)).ToList();
@@ -137,13 +176,39 @@
 
         if (_model.Items.Count == 0)
         {
-            _model.Items.Add(new AuctionItemModel());
+            _model.Items.Add(new AuctionItemModel { Name = "Item 1" });
         }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await InitPasteZonesAsync();
+    }
+
+    private async Task InitPasteZonesAsync()
+    {
+        for (int i = 0; i < _model.Items.Count; i++)
+        {
+            if (_model.Items[i].ImageDataUrl == null)
+            {
+                await JSRuntime.InvokeVoidAsync("initAuctionPasteZone", $"paste-zone-{i}", _dotNetRef, i);
+            }
+        }
+    }
+
+    [JSInvokable]
+    public void OnImagePasted(int itemIndex, string dataUrl, string mimeType)
+    {
+        if (itemIndex < 0 || itemIndex >= _model.Items.Count) return;
+        _model.Items[itemIndex].ImageDataUrl = dataUrl;
+        _model.Items[itemIndex].ImageMimeType = mimeType;
+        InvokeAsync(StateHasChanged);
     }
 
     private void AddItem()
     {
-        _model.Items.Add(new AuctionItemModel());
+        var nextNumber = _model.Items.Count + 1;
+        _model.Items.Add(new AuctionItemModel { Name = $"Item {nextNumber}" });
     }
 
     private void RemoveItem(int index)
@@ -158,6 +223,12 @@
         }
     }
 
+    private void ClearImage(int index)
+    {
+        _model.Items[index].ImageDataUrl = null;
+        _model.Items[index].ImageMimeType = null;
+    }
+
     private async Task HandleSubmit()
     {
         _errorMessage = string.Empty;
@@ -166,16 +237,15 @@
 
         try
         {
-            // Validate
             if (string.IsNullOrWhiteSpace(_model.Name))
             {
                 _errorMessage = "Auction name is required.";
                 return;
             }
 
-            if (_model.DurationMinutes <= 0)
+            if (_model.ClosesAt <= DateTime.Now)
             {
-                _errorMessage = "Duration must be greater than zero.";
+                _errorMessage = "Closing date must be in the future.";
                 return;
             }
 
@@ -185,7 +255,6 @@
                 return;
             }
 
-            // Validate items
             foreach (var item in _model.Items)
             {
                 if (string.IsNullOrWhiteSpace(item.Name))
@@ -201,7 +270,6 @@
                 }
             }
 
-            // Get current user
             var authState = await AuthenticationStateTask!;
             var userIdClaim = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
@@ -210,7 +278,6 @@
                 return;
             }
 
-            // Get user's guild
             var user = await UserRepository.FindByIdAsync(userId);
             if (user == null || user.GuildId == null)
             {
@@ -218,14 +285,35 @@
                 return;
             }
 
-            // Create auction
-            var items = _model.Items.Select(i => (i.Name, i.MinimumBid)).ToList();
+            // Upload images that were pasted
+            var itemsWithUrls = new List<(string Name, int MinimumBid, string? ImageUrl)>();
+            for (int i = 0; i < _model.Items.Count; i++)
+            {
+                var item = _model.Items[i];
+                string? imageUrl = null;
+
+                if (item.ImageDataUrl != null && item.ImageMimeType != null)
+                {
+                    _submitStatus = $"Uploading image {i + 1}/{_model.Items.Count}...";
+                    StateHasChanged();
+
+                    var base64 = item.ImageDataUrl[(item.ImageDataUrl.IndexOf(',') + 1)..];
+                    var imageBytes = Convert.FromBase64String(base64);
+                    imageUrl = await ImageStorageService.UploadImageAsync(imageBytes, item.ImageMimeType);
+                }
+
+                itemsWithUrls.Add((item.Name, item.MinimumBid, imageUrl));
+            }
+
+            _submitStatus = "Creating auction...";
+            StateHasChanged();
+
             var result = await AuctionService.CreateAuctionAsync(
                 user.GuildId.Value,
                 _model.Name,
-                _model.DurationMinutes,
+                _model.ClosesAt,
                 userId,
-                items
+                itemsWithUrls
             );
 
             if (result.Success && result.Auction != null)
@@ -246,6 +334,7 @@
         finally
         {
             _isSubmitting = false;
+            _submitStatus = string.Empty;
         }
     }
 
@@ -254,10 +343,15 @@
         Navigation.NavigateTo("/auctions");
     }
 
+    public void Dispose()
+    {
+        _dotNetRef?.Dispose();
+    }
+
     private class AuctionFormModel
     {
         public string Name { get; set; } = string.Empty;
-        public int DurationMinutes { get; set; } = 30;
+        public DateTime ClosesAt { get; set; } = DateTime.Now.AddHours(24);
         public List<AuctionItemModel> Items { get; set; } = new();
     }
 
@@ -265,5 +359,7 @@
     {
         public string Name { get; set; } = string.Empty;
         public int MinimumBid { get; set; } = 10;
+        public string? ImageDataUrl { get; set; }
+        public string? ImageMimeType { get; set; }
     }
 }

@@ -20,11 +20,13 @@ builder.Services.AddDataProtection()
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+    .AddInteractiveServerComponents()
+    .AddHubOptions(options => options.MaximumReceiveMessageSize = 10 * 1024 * 1024);
 
 // Configure Circuit options for detailed errors
 builder.Services.AddServerSideBlazor()
-    .AddCircuitOptions(options => { options.DetailedErrors = true; });
+    .AddCircuitOptions(options => { options.DetailedErrors = true; })
+    .AddHubOptions(options => options.MaximumReceiveMessageSize = 10 * 1024 * 1024);
 
 // Register DbConnectionFactory
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
@@ -89,6 +91,7 @@ builder.Services.AddScoped<AuthenticationService>();
 builder.Services.AddScoped<MemberService>();
 builder.Services.AddScoped<EventService>();
 builder.Services.AddScoped<AuctionService>();
+builder.Services.AddScoped<ImageStorageService>();
 
 // Add authorization
 builder.Services.AddAuthorization(options =>

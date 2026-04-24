@@ -349,18 +349,7 @@
         {
             awardHistory = await EventService.GetAwardHistoryAsync(EventId);
             confirmedAttendees = await EventService.GetConfirmedAttendeesAsync(EventId);
-            
-            // Get available attendees - use guild from event or get all active members
-            if (eventModel.GuildId != Guid.Empty)
-            {
-                availableAttendees = await EventService.GetActiveGuildMembersAsync(eventModel.GuildId);
-            }
-            else
-            {
-                availableAttendees = await EventService.GetAllActiveMembersAsync();
-            }
-            
-            // Pre-select all attendees for group award
+            availableAttendees = await EventService.GetEventAttendeesAsync(EventId, eventModel.GuildId);
             groupAwardModel.SelectedAttendees = availableAttendees.Select(a => a.Id).ToHashSet();
         }
         else

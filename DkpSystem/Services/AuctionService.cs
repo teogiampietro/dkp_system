@@ -40,9 +40,9 @@ public class AuctionService
     public async Task<(bool Success, string ErrorMessage, Auction? Auction)> CreateAuctionAsync(
         Guid guildId,
         string name,
-        int durationMinutes,
+        DateTime closesAt,
         Guid createdBy,
-        List<(string Name, int MinimumBid)> items)
+        List<(string Name, int MinimumBid, string? ImageUrl)> items)
     {
         // Validate items
         if (items == null || items.Count == 0)
@@ -74,7 +74,7 @@ public class AuctionService
             GuildId = guildId,
             Name = name,
             Status = "pending",
-            ClosesAt = DateTime.UtcNow.AddMinutes(durationMinutes), // Initial scheduled time
+            ClosesAt = closesAt.ToUniversalTime(),
             CreatedBy = createdBy,
             CreatedAt = DateTime.UtcNow
         };
@@ -89,6 +89,7 @@ public class AuctionService
                 AuctionId = createdAuction.Id,
                 Name = item.Name,
                 MinimumBid = item.MinimumBid,
+                ImageUrl = item.ImageUrl,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -103,7 +104,7 @@ public class AuctionService
     /// </summary>
     /// <param name="auctionId">The auction ID.</param>
     /// <param name="durationMinutes">The duration in minutes.</param>
-    public async Task<(bool Success, string ErrorMessage)> StartAuctionAsync(Guid auctionId, int durationMinutes)
+    public async Task<(bool Success, string ErrorMessage)> StartAuctionAsync(Guid auctionId)
     {
         var auction = await _auctionRepository.GetAuctionByIdAsync(auctionId);
         if (auction == null)
@@ -116,9 +117,7 @@ public class AuctionService
             return (false, "Only pending or cancelled auctions can be started.");
         }
 
-        var closesAt = DateTime.UtcNow.AddMinutes(durationMinutes);
         await _auctionRepository.UpdateAuctionStatusAsync(auctionId, "open", null);
-        await _auctionRepository.UpdateAuctionClosesAtAsync(auctionId, closesAt);
 
         return (true, string.Empty);
     }
@@ -470,6 +469,42 @@ public class AuctionService
     public async Task<IEnumerable<AuctionItem>> GetUnresolvedItemsAsync(Guid auctionId)
     {
         return await _auctionRepository.GetUnresolvedItemsAsync(auctionId);
+    }
+
+    /// <summary>
+    /// Gets the most recently delivered items across all auctions for a guild.
+    /// </summary>
+    /// <param name="guildId">The guild ID.</param>
+    /// <param name="count">Maximum number of items to return.</param>
+    public async Task<IEnumerable<RecentDeliveredItem>> GetRecentDeliveredItemsAsync(Guid guildId, int count = 10)
+    {
+        return await _auctionRepository.GetRecentDeliveredItemsAsync(guildId, count);
+    }
+
+    /// <summary>
+    /// Gets all open auctions for a guild.
+    /// </summary>
+    /// <param name="guildId">The guild ID.</param>
+    public async Task<IEnumerable<Auction>> GetOpenAuctionsByGuildAsync(Guid guildId)
+    {
+        return await _auctionRepository.GetOpenAuctionsByGuildAsync(guildId);
+    }
+
+    /// <summary>
+    /// Marks an auction item as skipped (no winner, no DKP deduction).
+    /// </summary>
+    /// <param name="itemId">The item ID to skip.</param>
+    /// <param name="skippedBy">The admin user ID performing the skip.</param>
+    public async Task<(bool Success, string ErrorMessage)> SkipItemAsync(Guid itemId, Guid skippedBy)
+    {
+        var item = await _auctionRepository.GetAuctionItemByIdAsync(itemId);
+        if (item == null)
+        {
+            return (false, "Item not found.");
+        }
+
+        await _auctionRepository.SkipItemAsync(itemId, skippedBy);
+        return (true, string.Empty);
     }
 }
 

@@ -51,6 +51,11 @@ public class AuctionItem
     public int? FinalPrice { get; set; }
 
     /// <summary>
+    /// Gets or sets the public URL of the item image, if any.
+    /// </summary>
+    public string? ImageUrl { get; set; }
+
+    /// <summary>
     /// Gets or sets the date and time when the item was created.
     /// </summary>
     public DateTime CreatedAt { get; set; }

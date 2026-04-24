@@ -1,17 +1,13 @@
 @page "/auctions/{AuctionId:guid}"
 @using DkpSystem.Services
 @using DkpSystem.Models
-@using DkpSystem.Data
 @using DkpSystem.Data.Repositories
 @using Microsoft.AspNetCore.Authorization
 @using System.Security.Claims
-@using Dapper
 @attribute [Authorize]
 @rendermode InteractiveServer
 @inject AuctionService AuctionService
-@inject AuctionRepository AuctionRepository
 @inject UserRepository UserRepository
-@inject DbConnectionFactory DbConnectionFactory
 @inject IJSRuntime JSRuntime
 
 <PageTitle>@(_auction?.Name ?? "Auction")</PageTitle>
@@ -76,7 +72,11 @@
                     @if (_auction.Status == "open" && _currentUser != null)
                     {
                         <div class="col-md-3">
-                            <strong>Your Balance:</strong> @_currentUser.DkpBalance DKP
+                            <strong>Balance:</strong> @_currentUser.DkpBalance DKP
+                            @if (_totalActiveBids > 0)
+                            {
+                                <span class="text-muted small ms-1">(committed: @_totalActiveBids)</span>
+                            }
                         </div>
                     }
                 </div>
@@ -157,7 +157,7 @@
         }
         else
         {
-            @foreach (var item in _items)
+      @foreach (var item in _items)
             {
                 var itemBids = _itemBids.GetValueOrDefault(item.Id, new List<BidWithUser>());
                 var userBid = _userBids.GetValueOrDefault(item.Id);
@@ -174,6 +174,8 @@
                         </div>
                     </div>
                     <div class="card-body">
+                        <div class="d-flex gap-3">
+                            <div class="flex-grow-1">
                         <p class="mb-2">
                             <strong>Minimum Bid:</strong> @item.MinimumBid DKP
                         </p>
@@ -331,6 +333,18 @@
                                 }
                             </div>
                         }
+                            </div>
+                            @if (!string.IsNullOrEmpty(item.ImageUrl))
+                            {
+                                <div class="flex-shrink-0 img-hover-wrapper">
+                                    <img src="@item.ImageUrl" alt="@item.Name" class="rounded"
+                                         style="width:100%; height:280px; object-fit:contain;" />
+                                    <div class="img-popup-overlay">
+                                        <img src="@item.ImageUrl" alt="@item.Name" />
+                                    </div>
+                                </div>
+                            }
+                        </div>
                     </div>
                 </div>
             }
@@ -417,6 +431,38 @@
         </div>
     }
 </div>
+
+<style>
+    .img-hover-wrapper {
+        position: relative;
+        cursor: zoom-in;
+    }
+
+    .img-popup-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.85);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s ease;
+        pointer-events: none;
+    }
+
+    .img-hover-wrapper:hover .img-popup-overlay {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .img-popup-overlay img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+    }
+</style>
 
 @code {
     [Parameter]
@@ -603,7 +649,7 @@
 
         try
         {
-            var result = await AuctionService.StartAuctionAsync(AuctionId, 30); // Default 30 minutes
+            var result = await AuctionService.StartAuctionAsync(AuctionId);
 
             if (result.Success)
             {
@@ -721,25 +767,19 @@
 
         try
         {
-            // Mark item as delivered with no winner (skipped)
-            var item = await AuctionRepository.GetAuctionItemByIdAsync(itemId);
-            if (item == null)
+            if (_currentUser == null) return;
+
+            var result = await AuctionService.SkipItemAsync(itemId, _currentUser.Id);
+
+            if (result.Success)
             {
-                _actionMessage = "Item not found.";
-                return;
+                _actionMessage = "Item skipped (not delivered to anyone).";
+                await LoadData();
             }
-
-            // We'll mark it as delivered but with no winner
-            using var connection = await DbConnectionFactory.CreateConnectionAsync();
-            await connection.ExecuteAsync(
-                @"UPDATE auction_items
-                  SET delivered = true, delivered_at = @DeliveredAt, delivered_by = @DeliveredBy
-                  WHERE id = @ItemId",
-                new { ItemId = itemId, DeliveredAt = DateTime.UtcNow, DeliveredBy = _currentUser!.Id }
-            );
-
-            _actionMessage = "Item skipped (not delivered to anyone).";
-            await LoadData();
+            else
+            {
+                _actionMessage = result.ErrorMessage;
+            }
         }
         catch (Exception ex)
         {
