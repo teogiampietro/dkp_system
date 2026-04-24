@@ -52,6 +52,23 @@ public class MemberRepository
     }
 
     /// <summary>
+    /// Gets all active members for a guild sorted by DKP balance descending.
+    /// </summary>
+    /// <param name="guildId">The guild ID.</param>
+    /// <returns>A list of active guild members sorted by DKP balance.</returns>
+    public virtual async Task<IEnumerable<User>> GetMemberRankingByGuildAsync(Guid guildId)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync();
+        const string sql = @"
+            SELECT id, email, username, password_hash, role, guild_id, dkp_balance, active, created_at
+            FROM users
+            WHERE active = true AND guild_id = @GuildId
+            ORDER BY dkp_balance DESC, username";
+
+        return await connection.QueryAsync<User>(sql, new { GuildId = guildId });
+    }
+
+    /// <summary>
     /// Gets a member by their ID.
     /// </summary>
     /// <param name="userId">The user ID.</param>

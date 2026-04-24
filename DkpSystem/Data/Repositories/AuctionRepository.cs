@@ -4,6 +4,20 @@ using DkpSystem.Models;
 namespace DkpSystem.Data.Repositories;
 
 /// <summary>
+/// Represents a recently delivered auction item with winner and auction info, used for dashboard display.
+/// </summary>
+public class RecentDeliveredItem
+{
+    public Guid ItemId { get; set; }
+    public string ItemName { get; set; } = string.Empty;
+    public Guid AuctionId { get; set; }
+    public string AuctionName { get; set; } = string.Empty;
+    public string WinnerName { get; set; } = string.Empty;
+    public int DkpPaid { get; set; }
+    public DateTime DeliveredAt { get; set; }
+}
+
+/// <summary>
 /// Repository for managing auction and auction item data access.
 /// </summary>
 public class AuctionRepository
@@ -144,9 +158,9 @@ public class AuctionRepository
     public async Task<AuctionItem> AddAuctionItemAsync(AuctionItem item)
     {
         const string sql = @"
-            INSERT INTO auction_items (auction_id, name, minimum_bid, created_at)
-            VALUES (@AuctionId, @Name, @MinimumBid, @CreatedAt)
-            RETURNING id, auction_id, name, minimum_bid, delivered, delivered_at, delivered_by, winner_id, final_price, created_at";
+            INSERT INTO auction_items (auction_id, name, minimum_bid, image_url, created_at)
+            VALUES (@AuctionId, @Name, @MinimumBid, @ImageUrl, @CreatedAt)
+            RETURNING id, auction_id, name, minimum_bid, image_url, delivered, delivered_at, delivered_by, winner_id, final_price, created_at";
 
         using var connection = await _connectionFactory.CreateConnectionAsync();
         var result = await connection.QuerySingleAsync<AuctionItem>(sql, item);
@@ -161,7 +175,7 @@ public class AuctionRepository
     public async Task<IEnumerable<AuctionItem>> GetAuctionItemsAsync(Guid auctionId)
     {
         const string sql = @"
-            SELECT id, auction_id, name, minimum_bid, delivered, delivered_at, delivered_by, winner_id, final_price, created_at
+            SELECT id, auction_id, name, minimum_bid, image_url, delivered, delivered_at, delivered_by, winner_id, final_price, created_at
             FROM auction_items
             WHERE auction_id = @AuctionId
             ORDER BY created_at";
@@ -178,7 +192,7 @@ public class AuctionRepository
     public async Task<IEnumerable<AuctionItem>> GetUnresolvedItemsAsync(Guid auctionId)
     {
         const string sql = @"
-            SELECT id, auction_id, name, minimum_bid, delivered, delivered_at, delivered_by, winner_id, final_price, created_at
+            SELECT id, auction_id, name, minimum_bid, image_url, delivered, delivered_at, delivered_by, winner_id, final_price, created_at
             FROM auction_items
             WHERE auction_id = @AuctionId AND winner_id IS NULL
             ORDER BY created_at";
@@ -195,7 +209,7 @@ public class AuctionRepository
     public async Task<AuctionItem?> GetAuctionItemByIdAsync(Guid itemId)
     {
         const string sql = @"
-            SELECT id, auction_id, name, minimum_bid, delivered, delivered_at, delivered_by, winner_id, final_price, created_at
+            SELECT id, auction_id, name, minimum_bid, image_url, delivered, delivered_at, delivered_by, winner_id, final_price, created_at
             FROM auction_items
             WHERE id = @ItemId";
 
@@ -269,6 +283,22 @@ public class AuctionRepository
     }
 
     /// <summary>
+    /// Marks an item as skipped — delivered with no winner and no DKP deduction.
+    /// </summary>
+    /// <param name="itemId">The item ID.</param>
+    /// <param name="skippedBy">The admin user ID performing the skip.</param>
+    public async Task SkipItemAsync(Guid itemId, Guid skippedBy)
+    {
+        const string sql = @"
+            UPDATE auction_items
+            SET delivered = true, delivered_at = @DeliveredAt, delivered_by = @DeliveredBy
+            WHERE id = @ItemId";
+
+        using var connection = await _connectionFactory.CreateConnectionAsync();
+        await connection.ExecuteAsync(sql, new { ItemId = itemId, DeliveredAt = DateTime.UtcNow, DeliveredBy = skippedBy });
+    }
+
+    /// <summary>
     /// Deletes all items for an auction (used when cancelling).
     /// </summary>
     /// <param name="auctionId">The auction ID.</param>
@@ -291,6 +321,34 @@ public class AuctionRepository
 
         using var connection = await _connectionFactory.CreateConnectionAsync();
         return await connection.ExecuteScalarAsync<int>(sql, new { AuctionId = auctionId });
+    }
+
+    /// <summary>
+    /// Gets the most recently delivered items across all auctions for a guild.
+    /// </summary>
+    /// <param name="guildId">The guild ID.</param>
+    /// <param name="count">Maximum number of items to return.</param>
+    /// <returns>List of recently delivered items with winner and auction details.</returns>
+    public async Task<IEnumerable<RecentDeliveredItem>> GetRecentDeliveredItemsAsync(Guid guildId, int count = 10)
+    {
+        const string sql = @"
+            SELECT
+                ai.id AS ItemId,
+                ai.name AS ItemName,
+                a.id AS AuctionId,
+                a.name AS AuctionName,
+                u.username AS WinnerName,
+                ai.final_price AS DkpPaid,
+                ai.delivered_at AS DeliveredAt
+            FROM auction_items ai
+            INNER JOIN auctions a ON ai.auction_id = a.id
+            INNER JOIN users u ON ai.winner_id = u.id
+            WHERE ai.delivered = true AND ai.winner_id IS NOT NULL AND a.guild_id = @GuildId
+            ORDER BY ai.delivered_at DESC
+            LIMIT @Count";
+
+        using var connection = await _connectionFactory.CreateConnectionAsync();
+        return await connection.QueryAsync<RecentDeliveredItem>(sql, new { GuildId = guildId, Count = count });
     }
 
     /// <summary>

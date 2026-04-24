@@ -42,6 +42,16 @@ public class MemberService
     }
 
     /// <summary>
+    /// Gets all active members for a guild sorted by DKP balance descending.
+    /// </summary>
+    /// <param name="guildId">The guild ID.</param>
+    /// <returns>A list of active guild members sorted by DKP balance.</returns>
+    public async Task<IEnumerable<User>> GetMemberRankingByGuildAsync(Guid guildId)
+    {
+        return await _memberRepository.GetMemberRankingByGuildAsync(guildId);
+    }
+
+    /// <summary>
     /// Gets a member by their ID.
     /// </summary>
     /// <param name="userId">The user ID.</param>

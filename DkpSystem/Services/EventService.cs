@@ -306,6 +306,18 @@ public class EventService
     {
         return await _eventRepository.GetConfirmedAttendeesAsync(eventId);
     }
+
+    /// <summary>
+    /// Gets the pre-confirmed attendees recorded at event creation time.
+    /// Falls back to all active guild members for events created before attendee tracking.
+    /// </summary>
+    /// <param name="eventId">The event ID.</param>
+    /// <param name="guildId">The guild ID used as fallback.</param>
+    /// <returns>A list of attendees for the event.</returns>
+    public async Task<IEnumerable<User>> GetEventAttendeesAsync(Guid eventId, Guid guildId)
+    {
+        return await _eventRepository.GetEventAttendeesAsync(eventId, guildId);
+    }
 }
 
 /// <summary>
