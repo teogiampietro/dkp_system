@@ -185,7 +185,7 @@
             var skippedItems = (await AuctionService.GetUnresolvedItemsAsync(FromAuctionId.Value)).ToList();
             foreach (var item in skippedItems)
             {
-                _model.Items.Add(new AuctionItemModel { Name = item.Name, MinimumBid = item.MinimumBid });
+                _model.Items.Add(new AuctionItemModel { Name = item.Name, MinimumBid = item.MinimumBid, ImageDataUrl = item.ImageUrl });
             }
             _preloadedItemCount = skippedItems.Count;
         }
