@@ -33,16 +33,18 @@ public class AuctionService
     /// </summary>
     /// <param name="guildId">The guild ID.</param>
     /// <param name="name">The auction name.</param>
-    /// <param name="durationMinutes">The duration in minutes.</param>
+    /// <param name="closesAt">When bidding closes.</param>
     /// <param name="createdBy">The user ID who created the auction.</param>
     /// <param name="items">The list of items with names and minimum bids.</param>
+    /// <param name="description">Optional description for the auction.</param>
     /// <returns>The created auction.</returns>
     public async Task<(bool Success, string ErrorMessage, Auction? Auction)> CreateAuctionAsync(
         Guid guildId,
         string name,
         DateTime closesAt,
         Guid createdBy,
-        List<(string Name, int MinimumBid, string? ImageUrl)> items)
+        List<(string Name, int MinimumBid, string? ImageUrl)> items,
+        string? description = null)
     {
         // Validate items
         if (items == null || items.Count == 0)
@@ -73,6 +75,7 @@ public class AuctionService
         {
             GuildId = guildId,
             Name = name,
+            Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
             Status = "pending",
             ClosesAt = closesAt.ToUniversalTime(),
             CreatedBy = createdBy,

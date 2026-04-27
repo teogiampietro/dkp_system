@@ -92,6 +92,7 @@ builder.Services.AddScoped<MemberService>();
 builder.Services.AddScoped<EventService>();
 builder.Services.AddScoped<AuctionService>();
 builder.Services.AddScoped<ImageStorageService>();
+builder.Services.AddHostedService<AuctionAutoCloseService>();
 
 // Add authorization
 builder.Services.AddAuthorization(options =>

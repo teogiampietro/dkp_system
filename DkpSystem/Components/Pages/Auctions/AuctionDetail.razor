@@ -61,12 +61,12 @@
                         }
                     </div>
                     <div class="col-md-3">
-                        <strong>Closes at:</strong> @_auction.ClosesAt.ToLocalTime().ToString("dd-MM-yyyy HH:mm")
+                        <strong>Closes at:</strong> @FormatAuctionTime(_auction.ClosesAt)
                     </div>
                     @if (_auction.ClosedAt.HasValue)
                     {
                         <div class="col-md-3">
-                            <strong>Closed at:</strong> @_auction.ClosedAt.Value.ToLocalTime().ToString("dd-MM-yyyy HH:mm")
+                            <strong>Closed at:</strong> @FormatAuctionTime(_auction.ClosedAt.Value)
                         </div>
                     }
                     @if (_auction.Status == "open" && _currentUser != null)
@@ -80,6 +80,15 @@
                         </div>
                     }
                 </div>
+
+                @if (!string.IsNullOrWhiteSpace(_auction.Description))
+                {
+                    <div class="row mt-2">
+                        <div class="col-12">
+                            <strong>Description:</strong> @_auction.Description
+                        </div>
+                    </div>
+                }
 
                 @* Time warning for open auctions *@
                 @if (_auction.Status == "open" && DateTime.UtcNow >= _auction.ClosesAt)
@@ -487,11 +496,24 @@
     private string _actionMessage = string.Empty;
     private bool _showSummaryModal = false;
     private bool _copiedToClipboard = false;
+    private int _browserUtcOffsetMinutes = 0;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
     }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _browserUtcOffsetMinutes = await JSRuntime.InvokeAsync<int>("getBrowserUtcOffsetMinutes");
+            StateHasChanged();
+        }
+    }
+
+    private string FormatAuctionTime(DateTime utcTime)
+        => utcTime.AddMinutes(-_browserUtcOffsetMinutes).ToString("dd-MM-yyyy HH:mm");
 
     private async Task LoadData()
     {
@@ -806,32 +828,56 @@
     private string GenerateSummaryText()
     {
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine($"=== RESUMEN: {_auction!.Name} ===");
 
-        var pending = _items
+        var pendingEntries = _items
             .Where(i => !i.Delivered)
             .Select(i => (Item: i, TopBid: _itemBids.GetValueOrDefault(i.Id)?.FirstOrDefault()))
             .Where(x => x.TopBid != null)
             .ToList();
 
-        if (pending.Any())
-        {
-            sb.AppendLine("\nPENDIENTE DE ENTREGAR:");
-            foreach (var (item, topBid) in pending)
-            {
-                var winner = _users.GetValueOrDefault(topBid!.Bid.UserId);
-                sb.AppendLine($"  • {item.Name} → {winner?.Username ?? "?"} ({topBid.Bid.Amount} DKP)");
-            }
-        }
+        var deliveredItems = _items.Where(i => i.Delivered && i.WinnerId.HasValue).ToList();
 
-        var delivered = _items.Where(i => i.Delivered && i.WinnerId.HasValue).ToList();
-        if (delivered.Any())
+        int totalAuctioned = _items.Count;
+        int totalSold = pendingEntries.Count + deliveredItems.Count;
+        int totalDkp = pendingEntries.Sum(x => x.TopBid!.Bid.Amount)
+                     + deliveredItems.Sum(i => i.FinalPrice ?? 0);
+
+        sb.AppendLine($"=== RESUMEN: {_auction!.Name} ===");
+        sb.AppendLine($"Items subastados : {totalAuctioned}");
+        sb.AppendLine($"Items comprados  : {totalSold}");
+        sb.AppendLine($"DKP gastados     : {totalDkp}");
+
+        // Build unified list of (winnerId, winnerName, itemName, dkp, delivered)
+        var allWinnerItems = pendingEntries
+            .Select(x => (
+                WinnerId: x.TopBid!.Bid.UserId,
+                WinnerName: _users.GetValueOrDefault(x.TopBid!.Bid.UserId)?.Username ?? "?",
+                ItemName: x.Item.Name,
+                Dkp: x.TopBid!.Bid.Amount,
+                Delivered: false
+            ))
+            .Concat(deliveredItems.Select(i => (
+                WinnerId: i.WinnerId!.Value,
+                WinnerName: _users.GetValueOrDefault(i.WinnerId!.Value)?.Username ?? "?",
+                ItemName: i.Name,
+                Dkp: i.FinalPrice ?? 0,
+                Delivered: true
+            )))
+            .GroupBy(x => (x.WinnerId, x.WinnerName))
+            .OrderBy(g => g.Key.WinnerName)
+            .ToList();
+
+        if (allWinnerItems.Any())
         {
-            sb.AppendLine("\nYA ENTREGADO:");
-            foreach (var item in delivered)
+            sb.AppendLine("\nITEMS A ENTREGAR:");
+            foreach (var group in allWinnerItems)
             {
-                var winner = _users.GetValueOrDefault(item.WinnerId!.Value);
-                sb.AppendLine($"  ✓ {item.Name} → {winner?.Username ?? "?"} ({item.FinalPrice} DKP)");
+                sb.AppendLine($"\n  {group.Key.WinnerName}:");
+                foreach (var entry in group)
+                {
+                    var status = entry.Delivered ? "✓" : "•";
+                    sb.AppendLine($"    {status} {entry.ItemName} ({entry.Dkp} DKP)");
+                }
             }
         }
 

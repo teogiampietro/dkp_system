@@ -29,6 +29,7 @@ public class DatabaseMigrator
         await ExecuteMigrationAsync(connection, "004_auction_tables.sql");
         await ExecuteMigrationAsync(connection, "006_add_item_image_url.sql");
         await ExecuteMigrationAsync(connection, "007_add_event_attendees.sql");
+        await ExecuteMigrationAsync(connection, "008_add_auction_description.sql");
         
         Console.WriteLine("✅ Database migrations completed successfully!");
     }
