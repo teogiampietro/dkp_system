@@ -21,6 +21,11 @@ public class Auction
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets an optional description for the auction.
+    /// </summary>
+    public string? Description { get; set; }
+
+    /// <summary>
     /// Gets or sets the status of the auction (pending, open, closed, cancelled).
     /// </summary>
     public string Status { get; set; } = "pending";

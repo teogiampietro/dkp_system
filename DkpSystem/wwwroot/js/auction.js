@@ -1,3 +1,7 @@
+window.getBrowserUtcOffsetMinutes = function () {
+    return new Date().getTimezoneOffset();
+};
+
 window.initAuctionPasteZone = function (zoneId, dotNetHelper, itemIndex) {
     const zone = document.getElementById(zoneId);
     if (!zone) return;

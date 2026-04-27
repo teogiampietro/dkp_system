@@ -53,6 +53,13 @@
                         </div>
 
                         <div class="mb-3">
+                            <label for="auctionDescription" class="form-label">Description <span class="text-muted">(optional)</span></label>
+                            <textarea id="auctionDescription" class="form-control" rows="3"
+                                      @bind="_model.Description"
+                                      placeholder="e.g., Items dropped from last night's raid — Mythic difficulty."></textarea>
+                        </div>
+
+                        <div class="mb-3">
                             <label for="closesAt" class="form-label">Closes At</label>
                             <input type="datetime-local" id="closesAt" class="form-control"
                                    value="@_model.ClosesAt.ToString("yyyy-MM-ddTHH:mm")"
@@ -175,6 +182,7 @@
     private bool _isSubmitting = false;
     private int _preloadedItemCount = 0;
     private DotNetObjectReference<AuctionForm>? _dotNetRef;
+    private int _browserUtcOffsetMinutes = 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -199,6 +207,13 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await InitPasteZonesAsync();
+
+        if (firstRender)
+        {
+            _browserUtcOffsetMinutes = await JSRuntime.InvokeAsync<int>("getBrowserUtcOffsetMinutes");
+            _model.ClosesAt = DateTime.UtcNow.AddHours(24).AddMinutes(-_browserUtcOffsetMinutes);
+            StateHasChanged();
+        }
     }
 
     private async Task InitPasteZonesAsync()
@@ -281,7 +296,7 @@
                 return;
             }
 
-            if (_model.ClosesAt <= DateTime.Now)
+            if (_model.ClosesAt.AddMinutes(_browserUtcOffsetMinutes) <= DateTime.UtcNow)
             {
                 _errorMessage = "Closing date must be in the future.";
                 return;
@@ -330,14 +345,24 @@
                 var item = _model.Items[i];
                 string? imageUrl = null;
 
-                if (item.ImageDataUrl != null && item.ImageMimeType != null)
+                if (item.ImageDataUrl != null)
                 {
-                    _submitStatus = $"Uploading image {i + 1}/{_model.Items.Count}...";
-                    StateHasChanged();
+                    // Check if it's already a regular URL (from preloaded items) or a data URL (from paste/upload)
+                    if (item.ImageDataUrl.StartsWith("http://") || item.ImageDataUrl.StartsWith("https://"))
+                    {
+                        // Already a valid URL from a previous auction, use it directly
+                        imageUrl = item.ImageDataUrl;
+                    }
+                    else if (item.ImageDataUrl.StartsWith("data:") && item.ImageMimeType != null)
+                    {
+                        // Data URL from paste/upload, need to upload to storage
+                        _submitStatus = $"Uploading image {i + 1}/{_model.Items.Count}...";
+                        StateHasChanged();
 
-                    var base64 = item.ImageDataUrl[(item.ImageDataUrl.IndexOf(',') + 1)..];
-                    var imageBytes = Convert.FromBase64String(base64);
-                    imageUrl = await ImageStorageService.UploadImageAsync(imageBytes, item.ImageMimeType);
+                        var base64 = item.ImageDataUrl[(item.ImageDataUrl.IndexOf(',') + 1)..];
+                        var imageBytes = Convert.FromBase64String(base64);
+                        imageUrl = await ImageStorageService.UploadImageAsync(imageBytes, item.ImageMimeType);
+                    }
                 }
 
                 itemsWithUrls.Add((item.Name, item.MinimumBid, imageUrl));
@@ -346,12 +371,14 @@
             _submitStatus = "Creating auction...";
             StateHasChanged();
 
+            var closesAtUtc = DateTime.SpecifyKind(_model.ClosesAt.AddMinutes(_browserUtcOffsetMinutes), DateTimeKind.Utc);
             var result = await AuctionService.CreateAuctionAsync(
                 user.GuildId.Value,
                 _model.Name,
-                _model.ClosesAt,
+                closesAtUtc,
                 userId,
-                itemsWithUrls
+                itemsWithUrls,
+                _model.Description
             );
 
             if (result.Success && result.Auction != null)
@@ -389,7 +416,8 @@
     private class AuctionFormModel
     {
         public string Name { get; set; } = string.Empty;
-        public DateTime ClosesAt { get; set; } = DateTime.Now.AddHours(24);
+        public string? Description { get; set; }
+        public DateTime ClosesAt { get; set; } = DateTime.UtcNow.AddHours(24);
         public List<AuctionItemModel> Items { get; set; } = new();
     }
 

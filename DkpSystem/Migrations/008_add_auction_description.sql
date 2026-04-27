@@ -1,0 +1,1 @@
+ALTER TABLE auctions ADD COLUMN IF NOT EXISTS description TEXT;

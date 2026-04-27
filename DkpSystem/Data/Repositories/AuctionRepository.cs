@@ -41,9 +41,9 @@ public class AuctionRepository
     public async Task<Auction> CreateAuctionAsync(Auction auction)
     {
         const string sql = @"
-            INSERT INTO auctions (guild_id, name, status, closes_at, created_by, created_at)
-            VALUES (@GuildId, @Name, @Status, @ClosesAt, @CreatedBy, @CreatedAt)
-            RETURNING id, guild_id, name, status, closes_at, closed_at, created_by, created_at";
+            INSERT INTO auctions (guild_id, name, description, status, closes_at, created_by, created_at)
+            VALUES (@GuildId, @Name, @Description, @Status, @ClosesAt, @CreatedBy, @CreatedAt)
+            RETURNING id, guild_id, name, description, status, closes_at, closed_at, created_by, created_at";
 
         using var connection = await _connectionFactory.CreateConnectionAsync();
         var result = await connection.QuerySingleAsync<Auction>(sql, auction);
@@ -58,7 +58,7 @@ public class AuctionRepository
     public async Task<Auction?> GetAuctionByIdAsync(Guid auctionId)
     {
         const string sql = @"
-            SELECT id, guild_id, name, status, closes_at, closed_at, created_by, created_at
+            SELECT id, guild_id, name, description, status, closes_at, closed_at, created_by, created_at
             FROM auctions
             WHERE id = @AuctionId";
 
@@ -74,7 +74,7 @@ public class AuctionRepository
     public async Task<IEnumerable<Auction>> GetAuctionsByGuildAsync(Guid guildId)
     {
         const string sql = @"
-            SELECT id, guild_id, name, status, closes_at, closed_at, created_by, created_at
+            SELECT id, guild_id, name, description, status, closes_at, closed_at, created_by, created_at
             FROM auctions
             WHERE guild_id = @GuildId
             ORDER BY created_at DESC";
@@ -91,7 +91,7 @@ public class AuctionRepository
     public async Task<IEnumerable<Auction>> GetOpenAuctionsByGuildAsync(Guid guildId)
     {
         const string sql = @"
-            SELECT id, guild_id, name, status, closes_at, closed_at, created_by, created_at
+            SELECT id, guild_id, name, description, status, closes_at, closed_at, created_by, created_at
             FROM auctions
             WHERE guild_id = @GuildId AND status = 'open'
             ORDER BY created_at DESC";
@@ -108,7 +108,7 @@ public class AuctionRepository
     public async Task<IEnumerable<Auction>> GetClosedAuctionsByGuildAsync(Guid guildId)
     {
         const string sql = @"
-            SELECT id, guild_id, name, status, closes_at, closed_at, created_by, created_at
+            SELECT id, guild_id, name, description, status, closes_at, closed_at, created_by, created_at
             FROM auctions
             WHERE guild_id = @GuildId AND status = 'closed'
             ORDER BY closed_at DESC";
@@ -349,6 +349,21 @@ public class AuctionRepository
 
         using var connection = await _connectionFactory.CreateConnectionAsync();
         return await connection.QueryAsync<RecentDeliveredItem>(sql, new { GuildId = guildId, Count = count });
+    }
+
+    /// <summary>
+    /// Closes all open auctions whose closes_at time has passed. Returns the IDs of closed auctions.
+    /// </summary>
+    public async Task<IEnumerable<Guid>> CloseExpiredAuctionsAsync()
+    {
+        const string sql = @"
+            UPDATE auctions
+            SET status = 'closed', closed_at = NOW()
+            WHERE status = 'open' AND closes_at <= NOW()
+            RETURNING id";
+
+        using var connection = await _connectionFactory.CreateConnectionAsync();
+        return await connection.QueryAsync<Guid>(sql);
     }
 
     /// <summary>

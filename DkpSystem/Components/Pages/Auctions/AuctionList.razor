@@ -5,9 +5,11 @@
 @using Microsoft.AspNetCore.Authorization
 @using System.Security.Claims
 @attribute [Authorize]
+@rendermode InteractiveServer
 @inject AuctionService AuctionService
 @inject AuctionRepository AuctionRepository
 @inject UserRepository UserRepository
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Auctions</PageTitle>
 
@@ -54,11 +56,15 @@
                                 </div>
                                 <div class="card-body">
                                     <p class="mb-2">
-                                        <strong>Status:</strong> 
+                                        <strong>Status:</strong>
                                         <span class="badge bg-success">OPEN</span>
                                     </p>
+                                    @if (!string.IsNullOrWhiteSpace(auction.Description))
+                                    {
+                                        <p class="mb-2 text-muted">@auction.Description</p>
+                                    }
                                     <p class="mb-2">
-                                        <strong>Closes at:</strong> @auction.ClosesAt.ToLocalTime().ToString("dd-MM-yyyy HH:mm")
+                                        <strong>Closes at:</strong> @FormatAuctionTime(auction.ClosesAt)
                                     </p>
                                     <p class="mb-2">
                                         <strong>Items:</strong> @_auctionItemCounts.GetValueOrDefault(auction.Id, 0)
@@ -131,7 +137,7 @@
                                         <span class="badge bg-secondary">CLOSED</span>
                                     </p>
                                     <p class="mb-2">
-                                        <strong>Closed at:</strong> @auction.ClosedAt?.ToLocalTime().ToString("dd-MM-yyyy HH:mm")
+                                        <strong>Closed at:</strong> @(auction.ClosedAt.HasValue ? FormatAuctionTime(auction.ClosedAt.Value) : "")
                                     </p>
                                     <p class="mb-2">
                                         <strong>Items:</strong> @_auctionItemCounts.GetValueOrDefault(auction.Id, 0)
@@ -187,6 +193,19 @@
     private Dictionary<Guid, int> _auctionBidCounts = new();
     private bool _isLoading = true;
     private string _errorMessage = string.Empty;
+    private int _browserUtcOffsetMinutes = 0;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _browserUtcOffsetMinutes = await JSRuntime.InvokeAsync<int>("getBrowserUtcOffsetMinutes");
+            StateHasChanged();
+        }
+    }
+
+    private string FormatAuctionTime(DateTime utcTime)
+        => utcTime.AddMinutes(-_browserUtcOffsetMinutes).ToString("dd-MM-yyyy HH:mm");
 
     protected override async Task OnInitializedAsync()
     {
