@@ -68,35 +68,42 @@
                     <div class="card-body">
                         @if (!string.IsNullOrEmpty(_passwordMessage))
                         {
-                            <div class="alert alert-@(_passwordSuccess ? "success" : "danger") alert-dismissible fade show" role="alert">
+                            <div
+                                class="alert alert-@(_passwordSuccess ? "success" : "danger") alert-dismissible fade show"
+                                role="alert">
                                 @_passwordMessage
-                                <button type="button" class="btn-close" @onclick="() => _passwordMessage = string.Empty"></button>
+                                <button type="button" class="btn-close"
+                                        @onclick="() => _passwordMessage = string.Empty"></button>
                             </div>
                         }
 
                         <EditForm Model="@_passwordModel" OnValidSubmit="@HandleChangePassword">
-                            <DataAnnotationsValidator />
-                            <ValidationSummary class="text-danger" />
+                            <DataAnnotationsValidator/>
+                            <ValidationSummary class="text-danger"/>
 
                             <div class="mb-3">
                                 <label for="currentPassword" class="form-label">Current Password</label>
-                                <InputText id="currentPassword" type="password" class="form-control" @bind-Value="_passwordModel.CurrentPassword" />
+                                <InputText id="currentPassword" type="password" class="form-control"
+                                           @bind-Value="_passwordModel.CurrentPassword"/>
                             </div>
 
                             <div class="mb-3">
                                 <label for="newPassword" class="form-label">New Password</label>
-                                <InputText id="newPassword" type="password" class="form-control" @bind-Value="_passwordModel.NewPassword" />
+                                <InputText id="newPassword" type="password" class="form-control"
+                                           @bind-Value="_passwordModel.NewPassword"/>
                             </div>
 
                             <div class="mb-3">
                                 <label for="confirmNewPassword" class="form-label">Confirm New Password</label>
-                                <InputText id="confirmNewPassword" type="password" class="form-control" @bind-Value="_passwordModel.ConfirmNewPassword" />
+                                <InputText id="confirmNewPassword" type="password" class="form-control"
+                                           @bind-Value="_passwordModel.ConfirmNewPassword"/>
                             </div>
 
                             <button type="submit" class="btn btn-primary" disabled="@_isChangingPassword">
                                 @if (_isChangingPassword)
                                 {
-                                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"
+                                          aria-hidden="true"></span>
                                     <span>Changing...</span>
                                 }
                                 else
@@ -109,49 +116,6 @@
                 </div>
             </div>
         </div>
-
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h4>DKP Earnings History</h4>
-                    </div>
-                    <div class="card-body">
-                        @if (_earningsHistory == null || !_earningsHistory.Any())
-                        {
-                            <p class="text-muted">Your DKP earnings will appear here once you participate in events.</p>
-                        }
-                        else
-                        {
-                            <div class="table-responsive">
-                                <table class="table table-striped">
-                                    <thead>
-                                        <tr>
-                                            <th>Date</th>
-                                            <th>Event</th>
-                                            <th>Reason</th>
-                                            <th>Points Earned</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var earning in _earningsHistory)
-                                        {
-                                            <tr>
-                                                <td>@earning.EarnedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
-                                                <td>@earning.EventName</td>
-                                                <td>@earning.Reason</td>
-                                                <td><strong class="text-success">+@earning.DkpAmount</strong></td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
-                        }
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <div class="row mt-4">
             <div class="col-12">
                 <div class="card">
@@ -168,23 +132,65 @@
                             <div class="table-responsive">
                                 <table class="table table-striped">
                                     <thead>
-                                        <tr>
-                                            <th>Date</th>
-                                            <th>Auction</th>
-                                            <th>Item</th>
-                                            <th>DKP Paid</th>
-                                        </tr>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Auction</th>
+                                        <th>Item</th>
+                                        <th>DKP Paid</th>
+                                    </tr>
                                     </thead>
                                     <tbody>
-                                        @foreach (var item in _wonItemsHistory)
-                                        {
-                                            <tr>
-                                                <td>@item.WonAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
-                                                <td>@item.AuctionName</td>
-                                                <td>@item.ItemName</td>
-                                                <td><strong class="text-danger">-@item.DkpPaid</strong></td>
-                                            </tr>
-                                        }
+                                    @foreach (var item in _wonItemsHistory)
+                                    {
+                                        <tr>
+                                            <td>@item.WonAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                            <td>@item.AuctionName</td>
+                                            <td>@item.ItemName</td>
+                                            <td><strong class="text-danger">-@item.DkpPaid</strong></td>
+                                        </tr>
+                                    }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>DKP Earnings History</h4>
+                    </div>
+                    <div class="card-body">
+                        @if (_earningsHistory == null || !_earningsHistory.Any())
+                        {
+                            <p class="text-muted">Your DKP earnings will appear here once you participate in events.</p>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Event</th>
+                                        <th>Reason</th>
+                                        <th>Points Earned</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    @foreach (var earning in _earningsHistory)
+                                    {
+                                        <tr>
+                                            <td>@earning.EarnedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                            <td>@earning.EventName</td>
+                                            <td>@earning.Reason</td>
+                                            <td><strong class="text-success">+@earning.DkpAmount</strong></td>
+                                        </tr>
+                                    }
                                     </tbody>
                                 </table>
                             </div>
@@ -242,7 +248,7 @@
                 if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
                 {
                     _user = await MemberService.GetMemberByIdAsync(userId);
-                    
+
                     if (_user != null)
                     {
                         _earningsHistory = await MemberService.GetMemberEarningsHistoryAsync(userId);
@@ -322,4 +328,5 @@
         [Required(ErrorMessage = "Please confirm your new password")]
         public string ConfirmNewPassword { get; set; } = string.Empty;
     }
+
 }
