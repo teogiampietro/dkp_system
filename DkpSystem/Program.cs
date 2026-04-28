@@ -87,11 +87,13 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.AddScoped<AuthenticationStateProvider, ServerAuthenticationStateProvider>();
 
 // Register application services
+builder.Services.AddSingleton<AuctionNotificationService>();
 builder.Services.AddScoped<AuthenticationService>();
 builder.Services.AddScoped<MemberService>();
 builder.Services.AddScoped<EventService>();
 builder.Services.AddScoped<AuctionService>();
 builder.Services.AddScoped<ImageStorageService>();
+builder.Services.AddScoped<ToastService>();
 builder.Services.AddHostedService<AuctionAutoCloseService>();
 
 // Add authorization

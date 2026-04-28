@@ -30,7 +30,7 @@ public class AuctionTests : IAsyncLifetime
         _auctionRepository = new AuctionRepository(_connectionFactory);
         _bidRepository = new BidRepository(_connectionFactory);
         _userRepository = new UserRepository(_connectionFactory);
-        _auctionService = new AuctionService(_auctionRepository, _bidRepository, _userRepository);
+        _auctionService = new AuctionService(_auctionRepository, _bidRepository, _userRepository, new AuctionNotificationService());
     }
 
     public async Task InitializeAsync()
@@ -39,8 +39,8 @@ public class AuctionTests : IAsyncLifetime
         _testGuildId = Guid.NewGuid();
         using var connection = await _connectionFactory.CreateConnectionAsync();
         await connection.ExecuteAsync(
-            "INSERT INTO guilds (id, name, created_at) VALUES (@Id, @Name, @CreatedAt)",
-            new { Id = _testGuildId, Name = "Test Guild", CreatedAt = DateTime.UtcNow }
+            "INSERT INTO guilds (id, name, invitation_code, created_at) VALUES (@Id, @Name, @InvitationCode, @CreatedAt)",
+            new { Id = _testGuildId, Name = "Test Guild", InvitationCode = Guid.NewGuid().ToString("N")[..8].ToUpper(), CreatedAt = DateTime.UtcNow }
         );
 
         // Create test users
@@ -218,15 +218,15 @@ public class AuctionTests : IAsyncLifetime
         // Place initial bid
         await _auctionService.PlaceOrUpdateBidAsync(_testRaider1Id, itemId, 50, "main");
 
-        // Act - Update bid
-        var result = await _auctionService.PlaceOrUpdateBidAsync(_testRaider1Id, itemId, 100, "alt");
+        // Act - Update bid (same type, higher amount — winners may not downgrade bid type)
+        var result = await _auctionService.PlaceOrUpdateBidAsync(_testRaider1Id, itemId, 100, "main");
 
         // Assert
         Assert.True(result.Success);
         var bid = await _bidRepository.GetBidByUserAndItemAsync(_testRaider1Id, itemId);
         Assert.NotNull(bid);
         Assert.Equal(100, bid.Amount);
-        Assert.Equal("alt", bid.BidType);
+        Assert.Equal("main", bid.BidType);
     }
 
     [Fact]
@@ -240,8 +240,9 @@ public class AuctionTests : IAsyncLifetime
         var auctionItems = await _auctionRepository.GetAuctionItemsAsync(auctionId);
         var itemId = auctionItems.First().Id;
 
-        // Place bid
+        // Place bids — raider2 outbids raider1 so raider1 is not the winner and can retract
         await _auctionService.PlaceOrUpdateBidAsync(_testRaider1Id, itemId, 50, "main");
+        await _auctionService.PlaceOrUpdateBidAsync(_testRaider2Id, itemId, 100, "main");
 
         // Act
         var result = await _auctionService.RetractBidAsync(_testRaider1Id, itemId);

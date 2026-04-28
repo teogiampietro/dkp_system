@@ -169,7 +169,11 @@ public class MemberManagementTests
             .ReturnsAsync(IdentityResult.Success);
 
         _mockUserManager
-            .Setup(um => um.AddPasswordAsync(member, "TempPass123"))
+            .Setup(um => um.GeneratePasswordResetTokenAsync(member))
+            .ReturnsAsync("reset-token");
+
+        _mockUserManager
+            .Setup(um => um.ResetPasswordAsync(member, "reset-token", "TempPass123"))
             .ReturnsAsync(IdentityResult.Success);
 
         // Act
@@ -178,7 +182,8 @@ public class MemberManagementTests
         // Assert
         Assert.True(result.IsSuccess);
         _mockUserManager.Verify(um => um.RemovePasswordAsync(member), Times.Once);
-        _mockUserManager.Verify(um => um.AddPasswordAsync(member, "TempPass123"), Times.Once);
+        _mockUserManager.Verify(um => um.GeneratePasswordResetTokenAsync(member), Times.Once);
+        _mockUserManager.Verify(um => um.ResetPasswordAsync(member, "reset-token", "TempPass123"), Times.Once);
     }
 
     /// <summary>

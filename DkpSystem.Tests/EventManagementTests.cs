@@ -49,8 +49,8 @@ public class EventManagementTests : IAsyncLifetime
         // Create test guild
         _testGuildId = Guid.NewGuid();
         await connection.ExecuteAsync(
-            "INSERT INTO guilds (id, name, created_at) VALUES (@Id, @Name, @CreatedAt)",
-            new { Id = _testGuildId, Name = "Test Guild", CreatedAt = DateTime.UtcNow }
+            "INSERT INTO guilds (id, name, invitation_code, created_at) VALUES (@Id, @Name, @InvitationCode, @CreatedAt)",
+            new { Id = _testGuildId, Name = "Test Guild", InvitationCode = Guid.NewGuid().ToString("N")[..8].ToUpper(), CreatedAt = DateTime.UtcNow }
         );
 
         // Create test admin
