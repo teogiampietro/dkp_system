@@ -1,0 +1,134 @@
+@using DkpSystem.Services
+@rendermode InteractiveServer
+@inject ToastService ToastService
+@implements IDisposable
+
+<div class="toast-container" aria-live="polite" aria-atomic="false">
+    @foreach (var toast in _toasts)
+    {
+        <div class="toast-notification toast-@toast.Type.ToString().ToLower() show" @key="toast.Id" role="alert">
+            <div class="toast-body">
+                <span class="toast-icon">@GetIcon(toast.Type)</span>
+                <span class="toast-message">@toast.Message</span>
+                <button class="toast-close" @onclick="() => ToastService.Dismiss(toast.Id)" aria-label="Close">×</button>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .toast-container {
+        position: fixed;
+        top: 1.25rem;
+        right: 1.25rem;
+        z-index: 10000;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        pointer-events: none;
+    }
+
+    .toast-notification {
+        min-width: 280px;
+        max-width: 380px;
+        border-radius: 0.5rem;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+        pointer-events: all;
+        animation: toast-slide-in 0.3s ease forwards;
+        opacity: 0;
+    }
+
+    .toast-notification.show {
+        animation: toast-slide-in 0.3s ease forwards, toast-fade-out 0.4s ease 4.6s forwards;
+    }
+
+    @@keyframes toast-slide-in {
+        from { opacity: 0; transform: translateX(110%); }
+        to   { opacity: 1; transform: translateX(0); }
+    }
+
+    @@keyframes toast-fade-out {
+        from { opacity: 1; }
+        to   { opacity: 0; transform: translateX(110%); }
+    }
+
+    .toast-body {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1rem;
+    }
+
+    .toast-icon {
+        font-size: 1.1rem;
+        flex-shrink: 0;
+    }
+
+    .toast-message {
+        flex-grow: 1;
+        font-size: 0.9rem;
+        line-height: 1.4;
+    }
+
+    .toast-close {
+        background: none;
+        border: none;
+        font-size: 1.2rem;
+        line-height: 1;
+        padding: 0 0 0 0.5rem;
+        cursor: pointer;
+        opacity: 0.6;
+        flex-shrink: 0;
+    }
+
+    .toast-close:hover { opacity: 1; }
+
+    .toast-success { background: #d1fae5; color: #065f46; border-left: 4px solid #10b981; }
+    .toast-error   { background: #fee2e2; color: #991b1b; border-left: 4px solid #ef4444; }
+    .toast-info    { background: #dbeafe; color: #1e40af; border-left: 4px solid #3b82f6; }
+    .toast-warning { background: #fef3c7; color: #92400e; border-left: 4px solid #f59e0b; }
+
+    .toast-success .toast-close { color: #065f46; }
+    .toast-error   .toast-close { color: #991b1b; }
+    .toast-info    .toast-close { color: #1e40af; }
+    .toast-warning .toast-close { color: #92400e; }
+</style>
+
+@code {
+    private List<ToastMessage> _toasts = new();
+
+    protected override void OnInitialized()
+    {
+        ToastService.OnChange += HandleChange;
+    }
+
+    private void HandleChange()
+    {
+        var updated = ToastService.Toasts.ToList();
+        var added = updated.Where(t => _toasts.All(x => x.Id != t.Id)).ToList();
+        _toasts = updated;
+        InvokeAsync(StateHasChanged);
+
+        foreach (var toast in added)
+            _ = AutoDismiss(toast.Id);
+    }
+
+    private async Task AutoDismiss(Guid id)
+    {
+        await Task.Delay(5000);
+        ToastService.Dismiss(id);
+    }
+
+    private static string GetIcon(ToastType type) => type switch
+    {
+        ToastType.Success => "✓",
+        ToastType.Error   => "✕",
+        ToastType.Warning => "⚠",
+        _                 => "ℹ",
+    };
+
+    public void Dispose()
+    {
+        ToastService.OnChange -= HandleChange;
+    }
+}

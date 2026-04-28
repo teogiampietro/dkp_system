@@ -11,6 +11,7 @@
 @inject AuctionNotificationService NotificationService
 @inject UserRepository UserRepository
 @inject IJSRuntime JSRuntime
+@inject ToastService ToastService
 
 <PageTitle>@(_auction?.Name ?? "Auction")</PageTitle>
 
@@ -134,13 +135,6 @@
                 </AuthorizeView>
             </div>
         </div>
-
-        @if (!string.IsNullOrEmpty(_actionMessage))
-        {
-            <div class="alert alert-info" role="alert">
-                @_actionMessage
-            </div>
-        }
 
         @* Re-auction callout for admins on closed auctions with unresolved items *@
         @if (_auction.Status == "closed" && _isAdmin)
@@ -512,10 +506,10 @@
     private bool _isLoading = true;
     private bool _isProcessing = false;
     private string _errorMessage = string.Empty;
-    private string _actionMessage = string.Empty;
     private bool _showSummaryModal = false;
     private bool _copiedToClipboard = false;
     private int _browserUtcOffsetMinutes = 0;
+    private bool _suppressUpdateToast = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -529,6 +523,9 @@
         InvokeAsync(async () =>
         {
             await LoadData(silent: true);
+            if (!_suppressUpdateToast)
+                ToastService.Show("Bids updated", ToastType.Info);
+            _suppressUpdateToast = false;
             StateHasChanged();
         });
     }
@@ -637,7 +634,6 @@
 
     private async Task PlaceBid(Guid itemId)
     {
-        _actionMessage = string.Empty;
         _isProcessing = true;
 
         try
@@ -646,22 +642,25 @@
 
             var amount = _bidAmounts.GetValueOrDefault(itemId, 0);
             var bidType = _bidTypes.GetValueOrDefault(itemId, "main");
+            var isUpdate = _userBids.ContainsKey(itemId);
 
             var result = await AuctionService.PlaceOrUpdateBidAsync(_currentUser.Id, itemId, amount, bidType);
 
             if (result.Success)
             {
-                _actionMessage = "Bid placed successfully!";
+                _suppressUpdateToast = true;
+                var msg = isUpdate ? "Bid updated successfully." : "Bid sent successfully.";
+                ToastService.Show(msg, ToastType.Success);
                 await LoadData();
             }
             else
             {
-                _actionMessage = result.ErrorMessage;
+                ToastService.Show(result.ErrorMessage ?? "Error al enviar la puja.", ToastType.Error);
             }
         }
         catch (Exception ex)
         {
-            _actionMessage = $"Error: {ex.Message}";
+            ToastService.Show($"Error: {ex.Message}", ToastType.Error);
         }
         finally
         {
@@ -671,7 +670,6 @@
 
     private async Task RetractBid(Guid itemId)
     {
-        _actionMessage = string.Empty;
         _isProcessing = true;
 
         try
@@ -682,17 +680,18 @@
 
             if (result.Success)
             {
-                _actionMessage = "Bid retracted successfully!";
+                _suppressUpdateToast = true;
+                ToastService.Show("Bid retracted successfully.", ToastType.Success);
                 await LoadData();
             }
             else
             {
-                _actionMessage = result.ErrorMessage;
+                ToastService.Show(result.ErrorMessage ?? "Error al retirar la puja.", ToastType.Error);
             }
         }
         catch (Exception ex)
         {
-            _actionMessage = $"Error: {ex.Message}";
+            ToastService.Show($"Error: {ex.Message}", ToastType.Error);
         }
         finally
         {
@@ -702,7 +701,6 @@
 
     private async Task AdminRetractBid(Guid bidId)
     {
-        _actionMessage = string.Empty;
         _isProcessing = true;
 
         try
@@ -711,17 +709,18 @@
 
             if (result.Success)
             {
-                _actionMessage = "Puja retirada por el administrador.";
+                _suppressUpdateToast = true;
+                ToastService.Show("Bid retried by administrator.", ToastType.Success);
                 await LoadData();
             }
             else
             {
-                _actionMessage = result.ErrorMessage;
+                ToastService.Show(result.ErrorMessage ?? "Error al retirar la puja.", ToastType.Error);
             }
         }
         catch (Exception ex)
         {
-            _actionMessage = $"Error: {ex.Message}";
+            ToastService.Show($"Error: {ex.Message}", ToastType.Error);
         }
         finally
         {
@@ -731,7 +730,6 @@
 
     private async Task StartAuction()
     {
-        _actionMessage = string.Empty;
         _isProcessing = true;
 
         try
@@ -740,17 +738,17 @@
 
             if (result.Success)
             {
-                _actionMessage = "Auction started successfully!";
+                ToastService.Show("Auction started successfully", ToastType.Success);
                 await LoadData();
             }
             else
             {
-                _actionMessage = result.ErrorMessage;
+                ToastService.Show(result.ErrorMessage ?? "Error al iniciar la subasta.", ToastType.Error);
             }
         }
         catch (Exception ex)
         {
-            _actionMessage = $"Error: {ex.Message}";
+            ToastService.Show($"Error: {ex.Message}", ToastType.Error);
         }
         finally
         {
@@ -760,7 +758,6 @@
 
     private async Task CloseAuction()
     {
-        _actionMessage = string.Empty;
         _isProcessing = true;
 
         try
@@ -769,17 +766,17 @@
 
             if (result.Success)
             {
-                _actionMessage = "Auction closed successfully!";
+                ToastService.Show("Auction closed successfully.", ToastType.Success);
                 await LoadData();
             }
             else
             {
-                _actionMessage = result.ErrorMessage;
+                ToastService.Show(result.ErrorMessage ?? "Error al cerrar la subasta.", ToastType.Error);
             }
         }
         catch (Exception ex)
         {
-            _actionMessage = $"Error: {ex.Message}";
+            ToastService.Show($"Error: {ex.Message}", ToastType.Error);
         }
         finally
         {
@@ -789,7 +786,6 @@
 
     private async Task CancelAuction()
     {
-        _actionMessage = string.Empty;
         _isProcessing = true;
 
         try
@@ -798,17 +794,17 @@
 
             if (result.Success)
             {
-                _actionMessage = "Auction cancelled successfully!";
+                ToastService.Show("Auction cancelled.", ToastType.Warning);
                 await LoadData();
             }
             else
             {
-                _actionMessage = result.ErrorMessage;
+                ToastService.Show(result.ErrorMessage ?? "Error al cancelar la subasta.", ToastType.Error);
             }
         }
         catch (Exception ex)
         {
-            _actionMessage = $"Error: {ex.Message}";
+            ToastService.Show($"Error: {ex.Message}", ToastType.Error);
         }
         finally
         {
@@ -818,7 +814,6 @@
 
     private async Task DeliverItem(Guid itemId, Guid winnerId, int finalPrice)
     {
-        _actionMessage = string.Empty;
         _isProcessing = true;
 
         try
@@ -829,17 +824,17 @@
 
             if (result.Success)
             {
-                _actionMessage = "Item delivered successfully!";
+                ToastService.Show("Item delivered successfully", ToastType.Success);
                 await LoadData();
             }
             else
             {
-                _actionMessage = result.ErrorMessage;
+                ToastService.Show(result.ErrorMessage ?? "Error al entregar el ítem.", ToastType.Error);
             }
         }
         catch (Exception ex)
         {
-            _actionMessage = $"Error: {ex.Message}";
+            ToastService.Show($"Error: {ex.Message}", ToastType.Error);
         }
         finally
         {
@@ -849,7 +844,6 @@
 
     private async Task SkipItem(Guid itemId)
     {
-        _actionMessage = string.Empty;
         _isProcessing = true;
 
         try
@@ -860,17 +854,17 @@
 
             if (result.Success)
             {
-                _actionMessage = "Item skipped (not delivered to anyone).";
+                ToastService.Show("Item skipped.", ToastType.Info);
                 await LoadData();
             }
             else
             {
-                _actionMessage = result.ErrorMessage;
+                ToastService.Show(result.ErrorMessage ?? "Error al omitir el ítem.", ToastType.Error);
             }
         }
         catch (Exception ex)
         {
-            _actionMessage = $"Error: {ex.Message}";
+            ToastService.Show($"Error: {ex.Message}", ToastType.Error);
         }
         finally
         {
@@ -886,7 +880,7 @@
             "collection" => "bg-success",
             "alt" => "bg-info",
             "greed" => "bg-secondary",
-            _ => "bg-secondary"
+            _ => "bg-warning"
         };
     }
 
