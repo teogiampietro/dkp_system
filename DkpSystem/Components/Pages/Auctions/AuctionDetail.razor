@@ -6,7 +6,9 @@
 @using System.Security.Claims
 @attribute [Authorize]
 @rendermode InteractiveServer
+@implements IAsyncDisposable
 @inject AuctionService AuctionService
+@inject AuctionNotificationService NotificationService
 @inject UserRepository UserRepository
 @inject IJSRuntime JSRuntime
 
@@ -517,7 +519,24 @@
 
     protected override async Task OnInitializedAsync()
     {
+        NotificationService.AuctionUpdated += OnAuctionUpdated;
         await LoadData();
+    }
+
+    private void OnAuctionUpdated(Guid auctionId)
+    {
+        if (auctionId != AuctionId) return;
+        InvokeAsync(async () =>
+        {
+            await LoadData(silent: true);
+            StateHasChanged();
+        });
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        NotificationService.AuctionUpdated -= OnAuctionUpdated;
+        return ValueTask.CompletedTask;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -532,9 +551,9 @@
     private string FormatAuctionTime(DateTime utcTime)
         => utcTime.AddMinutes(-_browserUtcOffsetMinutes).ToString("dd-MM-yyyy HH:mm");
 
-    private async Task LoadData()
+    private async Task LoadData(bool silent = false)
     {
-        _isLoading = true;
+        if (!silent) _isLoading = true;
         _errorMessage = string.Empty;
 
         try
@@ -562,11 +581,11 @@
             // Load items
             _items = (await AuctionService.GetAuctionItemsAsync(AuctionId)).ToList();
 
-            // Initialize bid amounts and types
+            // Initialize bid amounts and types (only on first load — preserve typed values on silent refresh)
             foreach (var item in _items)
             {
-                _bidAmounts[item.Id] = item.MinimumBid;
-                _bidTypes[item.Id] = "main";
+                if (!_bidAmounts.ContainsKey(item.Id)) _bidAmounts[item.Id] = item.MinimumBid;
+                if (!_bidTypes.ContainsKey(item.Id)) _bidTypes[item.Id] = "main";
             }
 
             // Load user's bids

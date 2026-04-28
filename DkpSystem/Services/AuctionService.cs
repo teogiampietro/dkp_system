@@ -11,6 +11,7 @@ public class AuctionService
     private readonly AuctionRepository _auctionRepository;
     private readonly BidRepository _bidRepository;
     private readonly UserRepository _userRepository;
+    private readonly AuctionNotificationService _notificationService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AuctionService"/> class.
@@ -18,14 +19,17 @@ public class AuctionService
     /// <param name="auctionRepository">The auction repository.</param>
     /// <param name="bidRepository">The bid repository.</param>
     /// <param name="userRepository">The user repository.</param>
+    /// <param name="notificationService">The singleton notification bus.</param>
     public AuctionService(
         AuctionRepository auctionRepository,
         BidRepository bidRepository,
-        UserRepository userRepository)
+        UserRepository userRepository,
+        AuctionNotificationService notificationService)
     {
         _auctionRepository = auctionRepository;
         _bidRepository = bidRepository;
         _userRepository = userRepository;
+        _notificationService = notificationService;
     }
 
     /// <summary>
@@ -121,6 +125,7 @@ public class AuctionService
         }
 
         await _auctionRepository.UpdateAuctionStatusAsync(auctionId, "open", null);
+        _notificationService.NotifyAuctionUpdated(auctionId);
 
         return (true, string.Empty);
     }
@@ -143,6 +148,7 @@ public class AuctionService
         }
 
         await _auctionRepository.UpdateAuctionStatusAsync(auctionId, "closed", DateTime.UtcNow);
+        _notificationService.NotifyAuctionUpdated(auctionId);
 
         return (true, string.Empty);
     }
@@ -169,6 +175,7 @@ public class AuctionService
 
         // Update status to cancelled
         await _auctionRepository.UpdateAuctionStatusAsync(auctionId, "cancelled", null);
+        _notificationService.NotifyAuctionUpdated(auctionId);
 
         return (true, string.Empty);
     }
@@ -253,6 +260,7 @@ public class AuctionService
             };
 
             await _bidRepository.PlaceBidAsync(newBid);
+            _notificationService.NotifyAuctionUpdated(auction.Id);
         }
         else
         {
@@ -272,6 +280,7 @@ public class AuctionService
 
             // Update existing bid
             await _bidRepository.UpdateBidAsync(existingBid.Id, amount, bidType.ToLower());
+            _notificationService.NotifyAuctionUpdated(auction.Id);
         }
 
         return (true, string.Empty);
@@ -320,6 +329,7 @@ public class AuctionService
 
         // Retract the bid
         await _bidRepository.RetractBidAsync(bid.Id);
+        _notificationService.NotifyAuctionUpdated(auction.Id);
 
         return (true, string.Empty);
     }
@@ -354,6 +364,7 @@ public class AuctionService
         }
 
         await _bidRepository.RetractBidAsync(bidId);
+        _notificationService.NotifyAuctionUpdated(auction.Id);
 
         return (true, string.Empty);
     }
@@ -445,6 +456,7 @@ public class AuctionService
 
         // Deliver the item (this updates the item and deducts DKP in a transaction)
         await _auctionRepository.DeliverItemAsync(itemId, winnerId, finalPrice, deliveredBy);
+        _notificationService.NotifyAuctionUpdated(auction.Id);
 
         return (true, string.Empty);
     }
@@ -562,6 +574,7 @@ public class AuctionService
         }
 
         await _auctionRepository.SkipItemAsync(itemId, skippedBy);
+        _notificationService.NotifyAuctionUpdated(item.AuctionId);
         return (true, string.Empty);
     }
 }
