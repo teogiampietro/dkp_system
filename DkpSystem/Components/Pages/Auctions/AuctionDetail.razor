@@ -252,13 +252,19 @@
                                                 disabled="@_isProcessing">
                                             @(userBid != null ? "Update Bid" : "Place Bid")
                                         </button>
-                                        @if (userBid != null)
+                                        @if (userBid != null && _currentUser?.Id != highestBid?.Bid.UserId)
                                         {
-                                            <button class="btn btn-outline-danger" 
-                                                    @onclick="() => RetractBid(item.Id)" 
+                                            <button class="btn btn-outline-danger"
+                                                    @onclick="() => RetractBid(item.Id)"
                                                     disabled="@_isProcessing">
                                                 Retract
                                             </button>
+                                        }
+                                        @if (userBid != null && _currentUser?.Id == highestBid?.Bid.UserId)
+                                        {
+                                            <span class="text-muted small ms-2" title="Diste la puja más alta en este ítem, no puedes retirarla.">
+                                                🏆 Hasta ahora ganas el item!
+                                            </span>
                                         }
                                     </div>
                                 </div>
@@ -294,7 +300,7 @@
                                                     <th>Bidder</th>
                                                     <th>Amount</th>
                                                     <th>Type</th>
-                                                    @if (_auction.Status == "closed" && _isAdmin && !item.Delivered && itemBids.Any())
+                                                    @if (_isAdmin && !item.Delivered && itemBids.Any() && (_auction.Status == "closed" || _auction.Status == "open"))
                                                     {
                                                         <th>Action</th>
                                                     }
@@ -313,14 +319,25 @@
                                                                 @bid.Bid.BidType.ToUpper()
                                                             </span>
                                                         </td>
-                                                        @if (_auction.Status == "closed" && _isAdmin && !item.Delivered)
+                                                        @if (_isAdmin && !item.Delivered)
                                                         {
                                                             <td>
-                                                                <button class="btn btn-sm btn-success"
-                                                                        @onclick="() => DeliverItem(item.Id, bid.Bid.UserId, bid.Bid.Amount)"
-                                                                        disabled="@_isProcessing">
-                                                                    Deliver to @bid.Username
-                                                                </button>
+                                                                @if (_auction.Status == "closed")
+                                                                {
+                                                                    <button class="btn btn-sm btn-success me-1"
+                                                                            @onclick="() => DeliverItem(item.Id, bid.Bid.UserId, bid.Bid.Amount)"
+                                                                            disabled="@_isProcessing">
+                                                                        Deliver to @bid.Username
+                                                                    </button>
+                                                                }
+                                                                @if (_auction.Status == "open")
+                                                                {
+                                                                    <button class="btn btn-sm btn-outline-danger"
+                                                                            @onclick="() => AdminRetractBid(bid.Bid.Id)"
+                                                                            disabled="@_isProcessing">
+                                                                        Retract
+                                                                    </button>
+                                                                }
                                                             </td>
                                                         }
                                                     </tr>
@@ -647,6 +664,35 @@
             if (result.Success)
             {
                 _actionMessage = "Bid retracted successfully!";
+                await LoadData();
+            }
+            else
+            {
+                _actionMessage = result.ErrorMessage;
+            }
+        }
+        catch (Exception ex)
+        {
+            _actionMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private async Task AdminRetractBid(Guid bidId)
+    {
+        _actionMessage = string.Empty;
+        _isProcessing = true;
+
+        try
+        {
+            var result = await AuctionService.AdminRetractBidAsync(bidId);
+
+            if (result.Success)
+            {
+                _actionMessage = "Puja retirada por el administrador.";
                 await LoadData();
             }
             else
