@@ -100,7 +100,8 @@ builder.Services.AddHostedService<AuctionAutoCloseService>();
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("admin"));
-    options.AddPolicy("RaiderOrAdmin", policy => policy.RequireRole("raider", "admin"));
+    options.AddPolicy("AdminOrOfficer", policy => policy.RequireRole("admin", "officer"));
+    options.AddPolicy("RaiderOrAdmin", policy => policy.RequireRole("raider", "admin", "officer"));
 });
 
 // Add cascading authentication state

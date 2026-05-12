@@ -14,8 +14,16 @@
                 <Authorized>
                     <span class="me-3">
                         Welcome, <strong>@context.User.Identity?.Name</strong>
-                        <a href="/profile" class="btn btn-sm btn-outline-@(context.User.IsInRole("admin") ? "danger" : "primary")" role="button">
-                             @(context.User.IsInRole("admin") ? "Admin" : "Raider")
+                        @{
+                            var roleLabel = context.User.IsInRole("admin") ? "Admin"
+                                : context.User.IsInRole("officer") ? "Officer"
+                                : "Raider";
+                            var roleVariant = context.User.IsInRole("admin") ? "danger"
+                                : context.User.IsInRole("officer") ? "warning"
+                                : "primary";
+                        }
+                        <a href="/profile" class="btn btn-sm btn-outline-@roleVariant" role="button">
+                            @roleLabel
                         </a>
                     </span>
                     <LogoutButton/>

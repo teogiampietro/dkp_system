@@ -101,8 +101,8 @@
                     </div>
                 }
 
-                @* Admin Controls *@
-                <AuthorizeView Roles="admin">
+                @* Admin/Officer Controls *@
+                <AuthorizeView Roles="admin,officer">
                     <Authorized>
                         <hr />
                         <div class="d-flex gap-2">
@@ -124,7 +124,7 @@
                                     Cancel Auction
                                 </button>
                             }
-                            @if (_auction.Status == "closed")
+                            @if (_auction.Status == "closed" && _isAdmin)
                             {
                                 <button class="btn btn-info" @onclick="() => _showSummaryModal = true">
                                     Resumen de Entrega
@@ -199,7 +199,7 @@
                         @if (_auction.Status == "open" && !item.Delivered)
                         {
                             @* Show current highest bid so raiders know what to beat *@
-                            @if (!_isAdmin)
+                            @if (!_isAdmin && !_isOfficer)
                             {
                                 <div class="mb-3">
                                     @if (highestBid != null)
@@ -273,8 +273,8 @@
                             </div>
                         }
 
-                        @* Show bids for closed auctions or admin view *@
-                        @if (_auction.Status == "closed" || (_isAdmin && _auction.Status == "open"))
+                        @* Show bids for closed auctions (raiders) or admin view (open). Officers never see bids. *@
+                        @if (_isAdmin || (_auction.Status == "closed" && !_isOfficer))
                         {
                             <div class="border-top pt-3 mt-3">
                                 <h6>Bids (@itemBids.Count)</h6>
@@ -503,6 +503,7 @@
     private User? _currentUser;
     private int _totalActiveBids = 0;
     private bool _isAdmin = false;
+    private bool _isOfficer = false;
     private bool _isLoading = true;
     private bool _isProcessing = false;
     private string _errorMessage = string.Empty;
@@ -565,6 +566,7 @@
             }
 
             _isAdmin = authState.User.IsInRole("admin");
+            _isOfficer = authState.User.IsInRole("officer");
             _currentUser = await UserRepository.FindByIdAsync(userId);
 
             // Load auction
@@ -599,8 +601,8 @@
                 _totalActiveBids = await AuctionService.GetTotalActiveBidsAsync(userId, AuctionId);
             }
 
-            // Load bids for each item (if closed, admin, or open — to show highest bid)
-            if (_auction.Status == "closed" || _isAdmin || _auction.Status == "open")
+            // Load bids for each item. Officers never see bids, so skip loading entirely for them.
+            if (!_isOfficer && (_auction.Status == "closed" || _isAdmin || _auction.Status == "open"))
             {
                 foreach (var item in _items)
                 {

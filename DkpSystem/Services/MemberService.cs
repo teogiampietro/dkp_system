@@ -65,15 +65,14 @@ public class MemberService
     /// Updates a member's role and guild assignment.
     /// </summary>
     /// <param name="userId">The user ID.</param>
-    /// <param name="role">The new role (must be 'admin' or 'raider').</param>
+    /// <param name="role">The new role (must be 'admin', 'officer', or 'raider').</param>
     /// <param name="guildId">The new guild ID (can be null).</param>
     /// <returns>A result indicating success or failure with an error message.</returns>
     public async Task<ServiceResult> UpdateMemberRoleAndGuildAsync(Guid userId, string role, Guid? guildId)
     {
-        // Validate role
-        if (role != "admin" && role != "raider")
+        if (role is not ("admin" or "officer" or "raider"))
         {
-            return ServiceResult.Failure("Role must be either 'admin' or 'raider'.");
+            return ServiceResult.Failure("Role must be 'admin', 'officer', or 'raider'.");
         }
 
         var member = await _memberRepository.GetMemberByIdAsync(userId);
