@@ -60,7 +60,7 @@
             </div>
         }
 
-        <AuthorizeView Roles="admin">
+        <AuthorizeView Roles="admin,officer">
             <Authorized Context="adminAuth">
                 @* Admin View *@
                 <div class="row">
@@ -199,7 +199,9 @@
                             </div>
                         </div>
 
-                        @* Individual Award Form *@
+                        @* Individual Award Form — admin only; officers cannot award individual DKP *@
+                        <AuthorizeView Roles="admin" Context="individualAuth">
+                            <Authorized>
                         <div class="card">
                             <div class="card-header bg-info text-white">
                                 <h5 class="mb-0">Add Individual Award</h5>
@@ -245,6 +247,8 @@
                                 </EditForm>
                             </div>
                         </div>
+                            </Authorized>
+                        </AuthorizeView>
                     </div>
                 </div>
             </Authorized>
@@ -329,7 +333,7 @@
                 currentUserId = userId;
             }
 
-            isAdmin = user.IsInRole("admin");
+            isAdmin = user.IsInRole("admin") || user.IsInRole("officer");
         }
 
         await LoadEventDataAsync();

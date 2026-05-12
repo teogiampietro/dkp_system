@@ -3,7 +3,7 @@
 @using DkpSystem.Data.Repositories
 @using Microsoft.AspNetCore.Authorization
 @using System.Security.Claims
-@attribute [Authorize(Roles = "admin")]
+@attribute [Authorize(Roles = "admin,officer")]
 @rendermode InteractiveServer
 @inject AuctionService AuctionService
 @inject ImageStorageService ImageStorageService

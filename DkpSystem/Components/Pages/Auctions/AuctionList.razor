@@ -16,7 +16,7 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>Auctions</h2>
-        <AuthorizeView Roles="admin">
+        <AuthorizeView Roles="admin,officer">
             <Authorized>
                 <a href="/admin/auctions/new" class="btn btn-primary">
                     + Create Auction
@@ -169,7 +169,7 @@
             <div class="alert alert-info" role="alert">
                 <h4 class="alert-heading">No auctions yet</h4>
                 <p>There are no auctions in the system.</p>
-                <AuthorizeView Roles="admin">
+                <AuthorizeView Roles="admin,officer">
                     <Authorized>
                         <hr>
                         <p class="mb-0">
