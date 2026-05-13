@@ -198,8 +198,8 @@
                         @* Bidding interface for open auctions *@
                         @if (_auction.Status == "open" && !item.Delivered)
                         {
-                            @* Show current highest bid so raiders know what to beat *@
-                            @if (!_isAdmin && !_isOfficer)
+                            @* Show current highest bid so raiders/officers know what to beat *@
+                            @if (!_isAdmin)
                             {
                                 <div class="mb-3">
                                     @if (highestBid != null)
@@ -601,8 +601,8 @@
                 _totalActiveBids = await AuctionService.GetTotalActiveBidsAsync(userId, AuctionId);
             }
 
-            // Load bids for each item. Officers never see bids, so skip loading entirely for them.
-            if (!_isOfficer && (_auction.Status == "closed" || _isAdmin || _auction.Status == "open"))
+            // Load bids for each item (needed for highest-bid display and the full bid table).
+            if (_auction.Status == "closed" || _isAdmin || _auction.Status == "open")
             {
                 foreach (var item in _items)
                 {
