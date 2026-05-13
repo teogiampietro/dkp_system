@@ -1,0 +1,163 @@
+@page "/attendance"
+@using DkpSystem.Models
+@using DkpSystem.Services
+@using Microsoft.AspNetCore.Authorization
+@using System.Security.Claims
+@attribute [Authorize(Policy = "RaiderOrAdmin")]
+@rendermode InteractiveServer
+
+<PageTitle>Attendance</PageTitle>
+
+<div class="container-fluid mt-4">
+    <div class="d-flex align-items-center mb-3 gap-3">
+        <h2 class="mb-0">
+            <span class="bi bi-clipboard-check me-2 text-primary"></span>Attendance
+        </h2>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-sm-6 col-md-3">
+                    <label class="form-label small text-muted mb-1" for="att-from">From</label>
+                    <input id="att-from" type="date" class="form-control form-control-sm"
+                           @bind="_from" />
+                </div>
+                <div class="col-sm-6 col-md-3">
+                    <label class="form-label small text-muted mb-1" for="att-to">To</label>
+                    <input id="att-to" type="date" class="form-control form-control-sm"
+                           @bind="_to" />
+                </div>
+                <div class="col-sm-6 col-md-2">
+                    <label class="form-label small text-muted mb-1" for="att-limit">Count</label>
+                    <select id="att-limit" class="form-select form-select-sm" @bind="_limit">
+                        <option value="10">Last 10</option>
+                        <option value="20">Last 20</option>
+                        <option value="50">Last 50</option>
+                        <option value="100">Last 100</option>
+                    </select>
+                </div>
+                <div class="col-sm-6 col-md-4 d-flex gap-2">
+                    <button type="button" class="btn btn-primary btn-sm" @onclick="ApplyFiltersAsync" disabled="@_isLoading">
+                        <span class="bi bi-funnel-fill me-1"></span>Apply
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="ClearFiltersAsync" disabled="@_isLoading">
+                        <span class="bi bi-x-circle me-1"></span>Clear
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (_errorMessage != null)
+    {
+        <div class="alert alert-danger">@_errorMessage</div>
+    }
+    else if (_matrix == null || _matrix.Events.Count == 0)
+    {
+        <div class="alert alert-info">
+            <span class="bi bi-info-circle me-2"></span>
+            No events found for the selected range.
+        </div>
+    }
+    else
+    {
+        <div class="text-muted small mb-2">
+            Showing @_matrix.Events.Count event(s) and @_matrix.Users.Count active player(s).
+        </div>
+        <div class="card">
+            <div class="table-responsive attendance-table-wrapper">
+                <table class="table table-bordered table-sm mb-0 attendance-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="player-col">Player</th>
+                            @foreach (var ev in _matrix.Events)
+                            {
+                                <th class="text-center event-col" title="@ev.Name">
+                                    <div class="small fw-semibold">@ev.CreatedAt.ToLocalTime().ToString("dd/MM")</div>
+                                    <div class="small text-muted">@ev.CreatedAt.ToLocalTime().ToString("HH:mm")</div>
+                                    <div class="small text-truncate event-name">@ev.Name</div>
+                                </th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in _matrix.Users)
+                        {
+                            <tr>
+                                <td class="player-col fw-semibold">@user.Username</td>
+                                @foreach (var ev in _matrix.Events)
+                                {
+                                    if (_matrix.Attended(user.Id, ev.Id))
+                                    {
+                                        <td class="text-center text-success" title="Attended">
+                                            A
+                                            <span classASPNETCORE_ENVIRONMENT=Production dotnet run="bi bi-check-circle-fill"></span>
+                                        </td>
+                                    }
+                                    else
+                                    {
+                                        <td class="text-center text-danger" title="Did not attend">
+                                            X
+                                            <span class="bi bi-x-circle-fill"></span>
+                                        </td>
+                                    }
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .attendance-table-wrapper {
+        max-height: 75vh;
+        overflow: auto;
+    }
+
+    .attendance-table {
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .attendance-table thead th {
+        position: sticky;
+        top: 0;
+        background-color: #f8f9fa;
+        z-index: 2;
+    }
+
+    .attendance-table .player-col {
+        position: sticky;
+        left: 0;
+        background-color: #fff;
+        z-index: 1;
+        min-width: 10rem;
+        max-width: 14rem;
+    }
+
+    .attendance-table thead th.player-col {
+        z-index: 3;
+        background-color: #f8f9fa;
+    }
+
+    .attendance-table .event-col {
+        min-width: 5.5rem;
+        max-width: 7rem;
+    }
+
+    .attendance-table .event-name {
+        max-width: 7rem;
+    }
+</style>

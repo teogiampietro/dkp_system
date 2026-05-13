@@ -415,6 +415,18 @@ public partial class AuctionDetail : ComponentBase, IAsyncDisposable
         };
     }
 
+    private string GetBidTypeLabel(string bidType)
+    {
+        return bidType.ToLower() switch
+        {
+            "main" => "PVP",
+            "alt" => "ALT/ZEN",
+            "collection" => "COLLECTION",
+            "greed" => "GREED",
+            _ => bidType.ToUpper()
+        };
+    }
+
     private string GenerateSummaryText()
     {
         var sb = new System.Text.StringBuilder();

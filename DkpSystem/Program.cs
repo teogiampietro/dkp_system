@@ -40,6 +40,7 @@ builder.Services.AddScoped<EventRepository>();
 builder.Services.AddScoped<AuctionRepository>();
 builder.Services.AddScoped<BidRepository>();
 builder.Services.AddScoped<GuildRepository>();
+builder.Services.AddScoped<AttendanceRepository>();
 
 // Register custom Identity store
 builder.Services.AddScoped<IUserStore<User>, DapperUserStore>();
@@ -92,6 +93,7 @@ builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<IMemberService, MemberService>();
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<IAuctionService, AuctionService>();
+builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<IImageStorageService, ImageStorageService>();
 builder.Services.AddScoped<IToastService, ToastService>();
 builder.Services.AddHostedService<AuctionAutoCloseService>();
