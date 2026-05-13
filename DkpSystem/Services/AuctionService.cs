@@ -6,12 +6,12 @@ namespace DkpSystem.Services;
 /// <summary>
 /// Service for managing auction business logic including lifecycle, bidding, and delivery.
 /// </summary>
-public class AuctionService
+public class AuctionService : IAuctionService
 {
     private readonly AuctionRepository _auctionRepository;
     private readonly BidRepository _bidRepository;
     private readonly UserRepository _userRepository;
-    private readonly AuctionNotificationService _notificationService;
+    private readonly IAuctionNotificationService _notificationService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AuctionService"/> class.
@@ -24,7 +24,7 @@ public class AuctionService
         AuctionRepository auctionRepository,
         BidRepository bidRepository,
         UserRepository userRepository,
-        AuctionNotificationService notificationService)
+        IAuctionNotificationService notificationService)
     {
         _auctionRepository = auctionRepository;
         _bidRepository = bidRepository;
@@ -577,20 +577,4 @@ public class AuctionService
         _notificationService.NotifyAuctionUpdated(item.AuctionId);
         return (true, string.Empty);
     }
-}
-
-/// <summary>
-/// Represents a bid with associated user information.
-/// </summary>
-public class BidWithUser
-{
-    /// <summary>
-    /// Gets or sets the bid.
-    /// </summary>
-    public AuctionBid Bid { get; set; } = null!;
-
-    /// <summary>
-    /// Gets or sets the username of the bidder.
-    /// </summary>
-    public string Username { get; set; } = string.Empty;
 }

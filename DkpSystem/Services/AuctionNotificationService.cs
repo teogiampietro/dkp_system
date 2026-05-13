@@ -4,7 +4,7 @@ namespace DkpSystem.Services;
 /// Singleton pub/sub bus for auction state changes. Components subscribe to
 /// <see cref="AuctionUpdated"/> and re-render when the relevant auction changes.
 /// </summary>
-public class AuctionNotificationService
+public class AuctionNotificationService : IAuctionNotificationService
 {
     public event Action<Guid>? AuctionUpdated;
 

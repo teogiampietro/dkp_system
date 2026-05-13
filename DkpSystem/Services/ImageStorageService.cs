@@ -6,7 +6,7 @@ namespace DkpSystem.Services;
 /// <summary>
 /// Service for uploading images to Linode Object Storage (S3-compatible).
 /// </summary>
-public class ImageStorageService
+public class ImageStorageService : IImageStorageService
 {
     private readonly IAmazonS3 _s3Client;
     private readonly string _bucketName;

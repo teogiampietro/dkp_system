@@ -5,7 +5,7 @@ public enum ToastType { Success, Error, Info, Warning }
 public record ToastMessage(Guid Id, string Message, ToastType Type);
 
 /// <summary>Scoped service for displaying ephemeral toast notifications in the UI.</summary>
-public class ToastService
+public class ToastService : IToastService
 {
     private readonly List<ToastMessage> _toasts = new();
 

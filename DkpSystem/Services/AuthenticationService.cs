@@ -7,7 +7,7 @@ namespace DkpSystem.Services;
 /// <summary>
 /// Service for handling user authentication operations.
 /// </summary>
-public class AuthenticationService
+public class AuthenticationService : IAuthenticationService
 {
     private readonly UserManager<User> _userManager;
     private readonly SignInManager<User> _signInManager;
