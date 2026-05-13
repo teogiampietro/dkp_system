@@ -202,7 +202,7 @@
                                             <strong>Current highest bid:</strong>
                                             @highestBid.Bid.Amount DKP &nbsp;
                                             <span class="badge @GetBidTypeBadgeClass(highestBid.Bid.BidType)">
-                                                @highestBid.Bid.BidType.ToUpper()
+                                                @GetBidTypeLabel(highestBid.Bid.BidType)
                                             </span>
                                         </div>
                                     }
@@ -218,7 +218,7 @@
                                 @if (userBid != null)
                                 {
                                     <div class="alert alert-info">
-                                        <strong>Your current bid:</strong> @userBid.Amount DKP (@userBid.BidType)
+                                        <strong>Your current bid:</strong> @userBid.Amount DKP (@GetBidTypeLabel(userBid.BidType))
                                     </div>
                                 }
                                 <div class="row g-2">
@@ -230,9 +230,9 @@
                                     </div>
                                     <div class="col-md-3">
                                         <select class="form-select" @bind="_bidTypes[item.Id]">
-                                            <option value="main">Main</option>
+                                            <option value="main">PVP</option>
                                             <option value="collection">Collection</option>
-                                            <option value="alt">Alt</option>
+                                            <option value="alt">ALT/ZEN</option>
                                             <option value="greed">Greed</option>
                                         </select>
                                     </div>
@@ -306,7 +306,7 @@
                                                         <td>@bid.Bid.Amount DKP</td>
                                                         <td>
                                                             <span class="badge @GetBidTypeBadgeClass(bid.Bid.BidType)">
-                                                                @bid.Bid.BidType.ToUpper()
+                                                                @GetBidTypeLabel(bid.Bid.BidType)
                                                             </span>
                                                         </td>
                                                         @if (_isAdmin && !item.Delivered)
