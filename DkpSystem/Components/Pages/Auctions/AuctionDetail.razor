@@ -252,8 +252,8 @@
                                         }
                                         @if (userBid != null && _currentUser?.Id == highestBid?.Bid.UserId)
                                         {
-                                            <span class="text-muted small ms-2" title="Diste la puja más alta en este ítem, no puedes retirarla.">
-                                                🏆 Hasta ahora ganas el item!
+                                            <span class="text-muted small ms-2" title="You placed the highest bid on this item, so you can't retract it.">
+                                                🏆 You're winning this item!
                                             </span>
                                         }
                                     </div>
@@ -387,16 +387,16 @@
                         }
                         @if (pendingItems.Any())
                         {
-                            <h6 class="text-warning">⏳ Pendiente de entregar</h6>
+                            <h6 class="text-warning">⏳ Pending Delivery</h6>
                             <table class="table table-sm">
-                                <thead><tr><th>Ítem</th><th>Ganador</th><th>DKP</th></tr></thead>
+                                <thead><tr><th>Item</th><th>Winner</th><th>DKP</th></tr></thead>
                                 <tbody>
                                 @foreach (var (item, topBid) in pendingItems)
                                 {
                                     var winner = topBid != null ? _users.GetValueOrDefault(topBid.Bid.UserId) : null;
                                     <tr>
                                         <td>@item.Name</td>
-                                        <td>@(winner?.Username ?? "(sin puja)")</td>
+                                        <td>@(winner?.Username ?? "(no bid)")</td>
                                         <td>@(topBid?.Bid.Amount.ToString() ?? "-") DKP</td>
                                     </tr>
                                 }
@@ -405,9 +405,9 @@
                         }
                         @if (deliveredItems.Any())
                         {
-                            <h6 class="text-success">✓ Ya entregado</h6>
+                            <h6 class="text-success">✓ Delivered</h6>
                             <table class="table table-sm">
-                                <thead><tr><th>Ítem</th><th>Ganador</th><th>DKP</th></tr></thead>
+                                <thead><tr><th>Item</th><th>Winner</th><th>DKP</th></tr></thead>
                                 <tbody>
                                 @foreach (var item in deliveredItems)
                                 {
@@ -423,7 +423,7 @@
                         }
                         @if (skippedItems.Any())
                         {
-                            <h6 class="text-secondary">— Omitidos</h6>
+                            <h6 class="text-secondary">— Skipped</h6>
                             <ul>
                             @foreach (var item in skippedItems)
                             {
@@ -433,14 +433,14 @@
                         }
                         @if (!pendingItems.Any() && !deliveredItems.Any() && !skippedItems.Any())
                         {
-                            <p class="text-muted">No hay ítems en esta subasta.</p>
+                            <p class="text-muted">This auction has no items.</p>
                         }
                     </div>
                     <div class="modal-footer">
                         <button class="btn btn-outline-secondary" @onclick="CopyToClipboard">
-                            @(_copiedToClipboard ? "✓ Copiado!" : "Copiar como texto")
+                            @(_copiedToClipboard ? "✓ Copied!" : "Copy as text")
                         </button>
-                        <button class="btn btn-secondary" @onclick="() => _showSummaryModal = false">Cerrar</button>
+                        <button class="btn btn-secondary" @onclick="() => _showSummaryModal = false">Close</button>
                     </div>
                 </div>
             </div>

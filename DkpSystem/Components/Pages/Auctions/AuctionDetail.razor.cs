@@ -360,7 +360,7 @@ public partial class AuctionDetail : ComponentBase, IAsyncDisposable
             }
             else
             {
-                ToastService.Show(result.ErrorMessage ?? "Error al entregar el ítem.", ToastType.Error);
+                ToastService.Show(result.ErrorMessage ?? "Failed to deliver item. Please try again.", ToastType.Error);
             }
         }
         catch (Exception ex)
@@ -390,7 +390,7 @@ public partial class AuctionDetail : ComponentBase, IAsyncDisposable
             }
             else
             {
-                ToastService.Show(result.ErrorMessage ?? "Error al omitir el ítem.", ToastType.Error);
+                ToastService.Show(result.ErrorMessage ?? "Failed to skip item. Please try again.", ToastType.Error);
             }
         }
         catch (Exception ex)

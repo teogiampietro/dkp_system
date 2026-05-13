@@ -10,9 +10,7 @@
     <nav class="flex-column">
         <AuthorizeView>
             <Authorized>
-                <div class="nav-item px-3">
-                    <strong class="text-muted small">RAIDER</strong>
-                </div>
+                <div class="nav-section-label">Raider</div>
 
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
@@ -52,9 +50,7 @@
 
                 <AuthorizeView Roles="admin">
                     <Authorized Context="adminContext">
-                        <div class="nav-item px-3">
-                            <strong class="text-muted small">ADMIN</strong>
-                        </div>
+                        <div class="nav-section-label">Admin</div>
 
                         <div class="nav-item px-3">
                             <NavLink class="nav-link" href="admin/members">
