@@ -87,13 +87,13 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.AddScoped<AuthenticationStateProvider, ServerAuthenticationStateProvider>();
 
 // Register application services
-builder.Services.AddSingleton<AuctionNotificationService>();
-builder.Services.AddScoped<AuthenticationService>();
-builder.Services.AddScoped<MemberService>();
-builder.Services.AddScoped<EventService>();
-builder.Services.AddScoped<AuctionService>();
-builder.Services.AddScoped<ImageStorageService>();
-builder.Services.AddScoped<ToastService>();
+builder.Services.AddSingleton<IAuctionNotificationService, AuctionNotificationService>();
+builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+builder.Services.AddScoped<IMemberService, MemberService>();
+builder.Services.AddScoped<IEventService, EventService>();
+builder.Services.AddScoped<IAuctionService, AuctionService>();
+builder.Services.AddScoped<IImageStorageService, ImageStorageService>();
+builder.Services.AddScoped<IToastService, ToastService>();
 builder.Services.AddHostedService<AuctionAutoCloseService>();
 
 // Add authorization
@@ -141,7 +141,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // Map logout endpoint
-app.MapPost("/logout", async (AuthenticationService authService, HttpContext context) =>
+app.MapPost("/logout", async (IAuthenticationService authService, HttpContext context) =>
 {
     await authService.LogoutAsync();
     context.Response.Redirect("/");

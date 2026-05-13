@@ -6,12 +6,12 @@ namespace DkpSystem.Services;
 /// <summary>
 /// Service for managing auction business logic including lifecycle, bidding, and delivery.
 /// </summary>
-public class AuctionService
+public class AuctionService : IAuctionService
 {
     private readonly AuctionRepository _auctionRepository;
     private readonly BidRepository _bidRepository;
     private readonly UserRepository _userRepository;
-    private readonly AuctionNotificationService _notificationService;
+    private readonly IAuctionNotificationService _notificationService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AuctionService"/> class.
@@ -24,7 +24,7 @@ public class AuctionService
         AuctionRepository auctionRepository,
         BidRepository bidRepository,
         UserRepository userRepository,
-        AuctionNotificationService notificationService)
+        IAuctionNotificationService notificationService)
     {
         _auctionRepository = auctionRepository;
         _bidRepository = bidRepository;
@@ -210,13 +210,13 @@ public class AuctionService
         // Check auction status
         if (auction.Status != "open")
         {
-            return (false, "Bids can only be placed on open auctions.");
+            return (false, "This auction has ended. No more bids are accepted.");
         }
 
         // Validate bid amount
         if (amount < item.MinimumBid)
         {
-            return (false, $"Bid amount must be at least {item.MinimumBid} DKP (minimum bid).");
+            return (false, $"Bid amount is below the minimum required for this auction. Minimum bid is {item.MinimumBid} DKP.");
         }
 
         // Validate bid type
@@ -242,7 +242,7 @@ public class AuctionService
         // Check if total bids would exceed balance
         if (totalOtherBids + amount > user.DkpBalance)
         {
-            return (false, $"Total active bids ({totalOtherBids + amount} DKP) would exceed your balance ({user.DkpBalance} DKP).");
+            return (false, $"Failed to place bid. Your DKP balance is insufficient: total active bids would be {totalOtherBids + amount} DKP, but your balance is {user.DkpBalance} DKP. Check your balance on the Dashboard.");
         }
 
         // Place or update the bid
@@ -270,11 +270,11 @@ public class AuctionService
             {
                 if (amount < existingBid.Amount)
                 {
-                    return (false, "No puedes bajar el monto de tu puja porque actualmente eres el ganador.");
+                    return (false, "You can't lower your bid amount while you're the winning bidder.");
                 }
                 if (GetBidTypePriority(bidType.ToLower()) > GetBidTypePriority(existingBid.BidType))
                 {
-                    return (false, "No puedes reducir la prioridad de tu puja porque actualmente eres el ganador.");
+                    return (false, "You can't downgrade your bid type while you're the winning bidder.");
                 }
             }
 
@@ -577,20 +577,4 @@ public class AuctionService
         _notificationService.NotifyAuctionUpdated(item.AuctionId);
         return (true, string.Empty);
     }
-}
-
-/// <summary>
-/// Represents a bid with associated user information.
-/// </summary>
-public class BidWithUser
-{
-    /// <summary>
-    /// Gets or sets the bid.
-    /// </summary>
-    public AuctionBid Bid { get; set; } = null!;
-
-    /// <summary>
-    /// Gets or sets the username of the bidder.
-    /// </summary>
-    public string Username { get; set; } = string.Empty;
 }

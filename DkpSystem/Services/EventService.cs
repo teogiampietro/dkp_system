@@ -6,7 +6,7 @@ namespace DkpSystem.Services;
 /// <summary>
 /// Service for managing events and DKP awards.
 /// </summary>
-public class EventService
+public class EventService : IEventService
 {
     private readonly EventRepository _eventRepository;
 
@@ -318,92 +318,4 @@ public class EventService
     {
         return await _eventRepository.GetEventAttendeesAsync(eventId, guildId);
     }
-}
-
-/// <summary>
-/// Summary information for an event in the event list.
-/// </summary>
-public class EventSummary
-{
-    /// <summary>
-    /// Gets or sets the event ID.
-    /// </summary>
-    public Guid Id { get; set; }
-
-    /// <summary>
-    /// Gets or sets the event name.
-    /// </summary>
-    public string Name { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the creation date.
-    /// </summary>
-    public DateTime CreatedAt { get; set; }
-
-    /// <summary>
-    /// Gets or sets the total DKP distributed.
-    /// </summary>
-    public int TotalDkpDistributed { get; set; }
-
-    /// <summary>
-    /// Gets or sets the number of confirmed attendees.
-    /// </summary>
-    public int AttendeeCount { get; set; }
-}
-
-/// <summary>
-/// Award history entry for admin view.
-/// </summary>
-public class AwardHistoryEntry
-{
-    /// <summary>
-    /// Gets or sets the reward line ID.
-    /// </summary>
-    public Guid RewardLineId { get; set; }
-
-    /// <summary>
-    /// Gets or sets the reason for the award.
-    /// </summary>
-    public string Reason { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the DKP amount.
-    /// </summary>
-    public int DkpAmount { get; set; }
-
-    /// <summary>
-    /// Gets or sets whether this is a group award.
-    /// </summary>
-    public bool IsGroupAward { get; set; }
-
-    /// <summary>
-    /// Gets or sets the number of recipients.
-    /// </summary>
-    public int RecipientCount { get; set; }
-
-    /// <summary>
-    /// Gets or sets the creation date.
-    /// </summary>
-    public DateTime CreatedAt { get; set; }
-}
-
-/// <summary>
-/// Raider earning entry for raider view.
-/// </summary>
-public class RaiderEarningEntry
-{
-    /// <summary>
-    /// Gets or sets the reason for the earning.
-    /// </summary>
-    public string Reason { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the DKP amount earned.
-    /// </summary>
-    public int DkpAmount { get; set; }
-
-    /// <summary>
-    /// Gets or sets the date earned.
-    /// </summary>
-    public DateTime EarnedAt { get; set; }
 }

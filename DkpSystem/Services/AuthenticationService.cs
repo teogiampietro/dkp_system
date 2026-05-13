@@ -7,7 +7,7 @@ namespace DkpSystem.Services;
 /// <summary>
 /// Service for handling user authentication operations.
 /// </summary>
-public class AuthenticationService
+public class AuthenticationService : IAuthenticationService
 {
     private readonly UserManager<User> _userManager;
     private readonly SignInManager<User> _signInManager;
@@ -96,7 +96,7 @@ public class AuthenticationService
             if (user == null)
             {
                 Console.WriteLine($"[LOGIN] User not found for email: {email}");
-                return (false, "Invalid credentials.");
+                return (false, "Invalid credentials. Check your email and password.");
             }
 
             Console.WriteLine($"[LOGIN] User found: {user.Email}, Active: {user.Active}, HasPasswordHash: {!string.IsNullOrEmpty(user.PasswordHash)}");
@@ -105,7 +105,7 @@ public class AuthenticationService
             if (!user.Active)
             {
                 Console.WriteLine($"[LOGIN] User is not active");
-                return (false, "This account has been deactivated.");
+                return (false, "This account has been deactivated. Contact an officer to restore access.");
             }
 
             // Verify password using UserManager
@@ -115,7 +115,7 @@ public class AuthenticationService
             
             if (!passwordValid)
             {
-                return (false, "Invalid credentials.");
+                return (false, "Invalid credentials. Check your email and password.");
             }
 
             // Sign in the user
@@ -129,7 +129,7 @@ public class AuthenticationService
         {
             Console.WriteLine($"[LOGIN ERROR] {ex.Message}");
             Console.WriteLine($"[LOGIN ERROR] Stack: {ex.StackTrace}");
-            return (false, $"Login error: {ex.Message}");
+            return (false, $"Unable to sign in. {ex.Message} Try again in a moment or contact an admin if the problem persists.");
         }
     }
 

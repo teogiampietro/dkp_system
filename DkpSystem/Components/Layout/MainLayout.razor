@@ -1,4 +1,5 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@using DkpSystem.Services
 
 <div class="page">
     <AuthorizeView>
@@ -12,7 +13,13 @@
         <div class="top-row px-4">
             <AuthorizeView>
                 <Authorized>
-                    <span class="me-3">
+                    @if (_dkpBalance is not null)
+                    {
+                        <span class="dkp-pill" title="Your current DKP balance">
+                            DKP <strong>@_dkpBalance</strong>
+                        </span>
+                    }
+                    <span class="me-2">
                         Welcome, <strong>@context.User.Identity?.Name</strong>
                         @{
                             var roleLabel = context.User.IsInRole("admin") ? "Admin"
