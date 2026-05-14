@@ -353,6 +353,34 @@ public class AuctionRepository
     }
 
     /// <summary>
+    /// Updates the closes_at timestamp of an auction. Only applied if the auction is still open,
+    /// to avoid racing the auto-close service.
+    /// </summary>
+    /// <param name="auctionId">The auction ID.</param>
+    /// <param name="closesAt">The new closing time (UTC).</param>
+    public async Task UpdateClosesAtAsync(Guid auctionId, DateTime closesAt)
+    {
+        const string sql = @"
+            UPDATE auctions
+            SET closes_at = @ClosesAt
+            WHERE id = @Id AND status = 'open'";
+
+        using var connection = await _connectionFactory.CreateConnectionAsync();
+        await connection.ExecuteAsync(sql, new { Id = auctionId, ClosesAt = closesAt });
+    }
+
+    /// <summary>
+    /// Returns the soonest closes_at timestamp across all currently open auctions, or null if none.
+    /// Used by the auto-close service to adapt its polling interval.
+    /// </summary>
+    public async Task<DateTime?> GetNextOpenCloseTimeAsync()
+    {
+        const string sql = "SELECT MIN(closes_at) FROM auctions WHERE status = 'open'";
+        using var connection = await _connectionFactory.CreateConnectionAsync();
+        return await connection.ExecuteScalarAsync<DateTime?>(sql);
+    }
+
+    /// <summary>
     /// Gets the count of bids in an auction.
     /// </summary>
     /// <param name="auctionId">The auction ID.</param>

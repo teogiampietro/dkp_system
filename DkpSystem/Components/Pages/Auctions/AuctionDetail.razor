@@ -59,6 +59,12 @@
                     </div>
                     <div class="col-md-3">
                         <strong>Closes at:</strong> @FormatAuctionTime(_auction.ClosesAt)
+                        @if (_auction.Status == "open")
+                        {
+                            <div class="@GetCountdownCssClass(_auction.ClosesAt)">
+                                ⏱ @FormatCountdown(_auction.ClosesAt)
+                            </div>
+                        }
                     </div>
                     @if (_auction.ClosedAt.HasValue)
                     {
@@ -221,28 +227,86 @@
                                         <strong>Your current bid:</strong> @userBid.Amount DKP (@GetBidTypeLabel(userBid.BidType))
                                     </div>
                                 }
-                                <div class="row g-2">
-                                    <div class="col-md-4">
-                                        <input type="number" class="form-control"
-                                               @bind="_bidAmounts[item.Id]"
-                                               min="@item.MinimumBid"
-                                               placeholder="Amount" />
+                                @if (IsUserWinning(item.Id))
+                                {
+                                    <div class="alert alert-success mb-0">
+                                        🏆 You're winning this item! You can't raise your own bid.
                                     </div>
-                                    <div class="col-md-3">
-                                        <select class="form-select" @bind="_bidTypes[item.Id]">
-                                            <option value="main">PVP</option>
-                                            <option value="collection">Collection</option>
-                                            <option value="alt">ALT/ZEN</option>
-                                            <option value="greed">Greed</option>
+                                }
+                                else
+                                {
+                                    var topOther = GetTopOtherBid(item.Id);
+                                    var hasOtherBid = topOther != null;
+                                    var availableForItem = GetAvailableDkpForItem(item.Id);
+                                    var allowedTypes = GetAllowedBidTypes(item.Id);
+                                    // If current selected type is no longer allowed, snap to the lowest-priority allowed type.
+                                    if (!allowedTypes.Contains(_bidTypes.GetValueOrDefault(item.Id, "main")))
+                                    {
+                                        _bidTypes[item.Id] = allowedTypes.LastOrDefault() ?? "main";
+                                    }
+
+                                    int minCustom;
+                                    bool customValid;
+                                    var typedAmount = _bidAmounts.GetValueOrDefault(item.Id, 0);
+
+                                    int bid15 = 0, bid30 = 0;
+                                    bool canPlus15 = false, canPlus30 = false, canAllIn = false;
+                                    if (hasOtherBid)
+                                    {
+                                        var floor = topOther!.Amount;
+                                        bid15 = CalcIncrement(floor, 0.15);
+                                        bid30 = CalcIncrement(floor, 0.30);
+                                        canAllIn = availableForItem > floor;
+                                        canPlus15 = bid15 <= availableForItem;
+                                        canPlus30 = bid30 <= availableForItem;
+                                        minCustom = bid30;
+                                        customValid = typedAmount >= minCustom && typedAmount <= availableForItem;
+                                    }
+                                    else
+                                    {
+                                        // First bid: any amount >= minimum is valid; no +15/+30 buttons.
+                                        minCustom = item.MinimumBid;
+                                        customValid = typedAmount >= minCustom && typedAmount <= availableForItem;
+                                    }
+
+                                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                                        @if (hasOtherBid)
+                                        {
+                                            <button class="btn btn-outline-primary"
+                                                    @onclick="() => BidPlus15(item.Id)"
+                                                    disabled="@(_isProcessing || !canPlus15)">
+                                                +15% (@bid15)
+                                            </button>
+                                            <button class="btn btn-outline-primary"
+                                                    @onclick="() => BidPlus30(item.Id)"
+                                                    disabled="@(_isProcessing || !canPlus30)">
+                                                +30% (@bid30)
+                                            </button>
+                                            <button class="btn btn-outline-warning"
+                                                    @onclick="() => BidAllIn(item.Id)"
+                                                    disabled="@(_isProcessing || !canAllIn)">
+                                                All In (@availableForItem)
+                                            </button>
+                                        }
+                                        <select class="form-select" style="width: 140px;" @bind="_bidTypes[item.Id]">
+                                            @foreach (var t in allowedTypes)
+                                            {
+                                                <option value="@t">@GetBidTypeLabel(t)</option>
+                                            }
                                         </select>
-                                    </div>
-                                    <div class="col-md-5">
-                                        <button class="btn btn-primary me-2"
+                                        <div style="width: 16px;"></div>
+                                        <input type="number" class="form-control"
+                                               style="width: 110px;"
+                                               @bind="_bidAmounts[item.Id]"
+                                               min="@minCustom"
+                                               max="@availableForItem"
+                                               placeholder="@($"Min {minCustom}")" />
+                                        <button class="btn btn-primary"
                                                 @onclick="() => PlaceBid(item.Id)"
-                                                disabled="@_isProcessing">
+                                                disabled="@(_isProcessing || !customValid)">
                                             @(userBid != null ? "Update Bid" : "Place Bid")
                                         </button>
-                                        @if (userBid != null && _currentUser?.Id != highestBid?.Bid.UserId)
+                                        @if (userBid != null)
                                         {
                                             <button class="btn btn-outline-danger"
                                                     @onclick="() => RetractBid(item.Id)"
@@ -250,14 +314,26 @@
                                                 Retract
                                             </button>
                                         }
-                                        @if (userBid != null && _currentUser?.Id == highestBid?.Bid.UserId)
-                                        {
-                                            <span class="text-muted small ms-2" title="You placed the highest bid on this item, so you can't retract it.">
-                                                🏆 You're winning this item!
-                                            </span>
-                                        }
                                     </div>
-                                </div>
+                                    @if (hasOtherBid)
+                                    {
+                                        <small class="text-muted d-block mt-1">
+                                            Custom bid must be at least @minCustom DKP (+30% over @topOther!.Amount). Use the buttons above for +15% or All In.
+                                        </small>
+                                        @if (allowedTypes.Count < 4)
+                                        {
+                                            <small class="text-muted d-block">
+                                                Current winning type is @GetBidTypeLabel(topOther.BidType) — lower-priority bid types are disabled.
+                                            </small>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <small class="text-muted d-block mt-1">
+                                            Be the first to bid. Minimum @minCustom DKP.
+                                        </small>
+                                    }
+                                }
                                 @if (_currentUser != null)
                                 {
                                     <small class="text-muted d-block mt-2">
@@ -267,8 +343,8 @@
                             </div>
                         }
 
-                        @* Show bids for closed auctions (raiders) or admin view (open). Officers never see bids. *@
-                        @if (_isAdmin || (_auction.Status == "closed" && !_isOfficer))
+                        @* Show bids for closed auctions (all roles) or admin view on open auctions. *@
+                        @if (_auction.Status == "closed" || (_isAdmin && _auction.Status == "open"))
                         {
                             <div class="border-top pt-3 mt-3">
                                 <h6>Bids (@itemBids.Count)</h6>
