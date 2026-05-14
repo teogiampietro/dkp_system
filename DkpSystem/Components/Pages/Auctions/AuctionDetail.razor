@@ -267,8 +267,8 @@
                             </div>
                         }
 
-                        @* Show bids for closed auctions (raiders) or admin view (open). Officers never see bids. *@
-                        @if (_isAdmin || (_auction.Status == "closed" && !_isOfficer))
+                        @* Show bids for closed auctions (all roles) or admin view on open auctions. *@
+                        @if (_auction.Status == "closed" || (_isAdmin && _auction.Status == "open"))
                         {
                             <div class="border-top pt-3 mt-3">
                                 <h6>Bids (@itemBids.Count)</h6>
