@@ -249,18 +249,29 @@
                                     bool customValid;
                                     var typedAmount = _bidAmounts.GetValueOrDefault(item.Id, 0);
 
+                                    int bid15 = 0, bid30 = 0;
+                                    bool canPlus15 = false, canPlus30 = false, canAllIn = false;
                                     if (hasOtherBid)
                                     {
                                         var floor = topOther!.Amount;
-                                        var bid15 = CalcIncrement(floor, 0.15);
-                                        var bid30 = CalcIncrement(floor, 0.30);
-                                        var canAllIn = availableForItem > floor;
-                                        var canPlus15 = bid15 <= availableForItem;
-                                        var canPlus30 = bid30 <= availableForItem;
+                                        bid15 = CalcIncrement(floor, 0.15);
+                                        bid30 = CalcIncrement(floor, 0.30);
+                                        canAllIn = availableForItem > floor;
+                                        canPlus15 = bid15 <= availableForItem;
+                                        canPlus30 = bid30 <= availableForItem;
                                         minCustom = bid30;
                                         customValid = typedAmount >= minCustom && typedAmount <= availableForItem;
+                                    }
+                                    else
+                                    {
+                                        // First bid: any amount >= minimum is valid; no +15/+30 buttons.
+                                        minCustom = item.MinimumBid;
+                                        customValid = typedAmount >= minCustom && typedAmount <= availableForItem;
+                                    }
 
-                                        <div class="d-flex flex-wrap gap-2 mb-2">
+                                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                                        @if (hasOtherBid)
+                                        {
                                             <button class="btn btn-outline-primary"
                                                     @onclick="() => BidPlus15(item.Id)"
                                                     disabled="@(_isProcessing || !canPlus15)">
@@ -276,46 +287,33 @@
                                                     disabled="@(_isProcessing || !canAllIn)">
                                                 All In (@availableForItem)
                                             </button>
-                                        </div>
-                                    }
-                                    else
-                                    {
-                                        // First bid: any amount >= minimum is valid; no +15/+30 buttons.
-                                        minCustom = item.MinimumBid;
-                                        customValid = typedAmount >= minCustom && typedAmount <= availableForItem;
-                                    }
-
-                                    <div class="row g-2">
-                                        <div class="col-md-4">
-                                            <input type="number" class="form-control"
-                                                   @bind="_bidAmounts[item.Id]"
-                                                   min="@minCustom"
-                                                   max="@availableForItem"
-                                                   placeholder="@($"Min {minCustom}")" />
-                                        </div>
-                                        <div class="col-md-3">
-                                            <select class="form-select" @bind="_bidTypes[item.Id]">
-                                                @foreach (var t in allowedTypes)
-                                                {
-                                                    <option value="@t">@GetBidTypeLabel(t)</option>
-                                                }
-                                            </select>
-                                        </div>
-                                        <div class="col-md-5">
-                                            <button class="btn btn-primary me-2"
-                                                    @onclick="() => PlaceBid(item.Id)"
-                                                    disabled="@(_isProcessing || !customValid)">
-                                                @(userBid != null ? "Update Bid" : "Place Bid")
-                                            </button>
-                                            @if (userBid != null)
+                                        }
+                                        <select class="form-select" style="width: 140px;" @bind="_bidTypes[item.Id]">
+                                            @foreach (var t in allowedTypes)
                                             {
-                                                <button class="btn btn-outline-danger"
-                                                        @onclick="() => RetractBid(item.Id)"
-                                                        disabled="@_isProcessing">
-                                                    Retract
-                                                </button>
+                                                <option value="@t">@GetBidTypeLabel(t)</option>
                                             }
-                                        </div>
+                                        </select>
+                                        <div style="width: 16px;"></div>
+                                        <input type="number" class="form-control"
+                                               style="width: 110px;"
+                                               @bind="_bidAmounts[item.Id]"
+                                               min="@minCustom"
+                                               max="@availableForItem"
+                                               placeholder="@($"Min {minCustom}")" />
+                                        <button class="btn btn-primary"
+                                                @onclick="() => PlaceBid(item.Id)"
+                                                disabled="@(_isProcessing || !customValid)">
+                                            @(userBid != null ? "Update Bid" : "Place Bid")
+                                        </button>
+                                        @if (userBid != null)
+                                        {
+                                            <button class="btn btn-outline-danger"
+                                                    @onclick="() => RetractBid(item.Id)"
+                                                    disabled="@_isProcessing">
+                                                Retract
+                                            </button>
+                                        }
                                     </div>
                                     @if (hasOtherBid)
                                     {
