@@ -245,10 +245,44 @@ public class AuctionService : IAuctionService
             return (false, $"Failed to place bid. Your DKP balance is insufficient: total active bids would be {totalOtherBids + amount} DKP, but your balance is {user.DkpBalance} DKP. Check your balance on the Dashboard.");
         }
 
+        // Look at the current top bid placed by someone else (the user's own bid never counts as a floor)
+        var sortedBids = await GetSortedBidsForItemAsync(auctionItemId);
+        var topOtherBid = sortedBids.FirstOrDefault(b => b.Bid.UserId != userId)?.Bid;
+
+        // Block the current winning bidder from raising their own bid
+        if (sortedBids.Count > 0 && sortedBids[0].Bid.UserId == userId)
+        {
+            return (false, "You're already winning this item. You can't raise your own bid.");
+        }
+
+        var available = user.DkpBalance - totalOtherBids;
+        var bidTypeLower = bidType.ToLower();
+
+        if (topOtherBid != null)
+        {
+            // Enforce bid-type priority: cannot bid with a lower-priority type than the current winner.
+            // Priority order: main > collection > alt > greed (lower number = higher priority).
+            if (GetBidTypePriority(bidTypeLower) > GetBidTypePriority(topOtherBid.BidType))
+            {
+                return (false, $"You can't bid {GetBidTypeLabel(bidTypeLower)} because the current winning bid is {GetBidTypeLabel(topOtherBid.BidType)}. Match or beat that priority.");
+            }
+
+            // Enforce minimum increment: at least +15% over the current high bid,
+            // OR an exact all-in (user's full available DKP, when that beats the floor).
+            var floor = topOtherBid.Amount;
+            var minAmount = floor + (int)Math.Ceiling(floor * 0.15);
+            var isAllIn = amount == available && available > floor;
+            if (amount < minAmount && !isAllIn)
+            {
+                return (false, $"Minimum bid is {minAmount} DKP (15% over current {floor}). Use 'All In' to bid your full {available} DKP.");
+            }
+        }
+        // First bid on the item (no other-user bid yet): any amount >= item.MinimumBid is valid
+        // (already enforced above). No +15% rule, no bid-type priority block.
+
         // Place or update the bid
         if (existingBid == null)
         {
-            // Place new bid
             var newBid = new AuctionBid
             {
                 AuctionItemId = auctionItemId,
@@ -260,29 +294,21 @@ public class AuctionService : IAuctionService
             };
 
             await _bidRepository.PlaceBidAsync(newBid);
-            _notificationService.NotifyAuctionUpdated(auction.Id);
         }
         else
         {
-            // Winners cannot lower their bid amount or downgrade their bid type
-            var sortedBids = await GetSortedBidsForItemAsync(auctionItemId);
-            if (sortedBids.Count > 0 && sortedBids[0].Bid.UserId == userId)
-            {
-                if (amount < existingBid.Amount)
-                {
-                    return (false, "You can't lower your bid amount while you're the winning bidder.");
-                }
-                if (GetBidTypePriority(bidType.ToLower()) > GetBidTypePriority(existingBid.BidType))
-                {
-                    return (false, "You can't downgrade your bid type while you're the winning bidder.");
-                }
-            }
-
-            // Update existing bid
             await _bidRepository.UpdateBidAsync(existingBid.Id, amount, bidType.ToLower());
-            _notificationService.NotifyAuctionUpdated(auction.Id);
         }
 
+        // Anti-snipe: if the bid lands in the final 60 seconds, extend closes_at to now + 60s.
+        var now = DateTime.UtcNow;
+        var secondsLeft = (auction.ClosesAt - now).TotalSeconds;
+        if (secondsLeft > 0 && secondsLeft < 60)
+        {
+            await _auctionRepository.UpdateClosesAtAsync(auction.Id, now.AddSeconds(60));
+        }
+
+        _notificationService.NotifyAuctionUpdated(auction.Id);
         return (true, string.Empty);
     }
 
@@ -473,6 +499,18 @@ public class AuctionService : IAuctionService
             "alt" => 3,
             "greed" => 4,
             _ => 5
+        };
+    }
+
+    private static string GetBidTypeLabel(string bidType)
+    {
+        return bidType.ToLower() switch
+        {
+            "main" => "PVP",
+            "collection" => "COLLECTION",
+            "alt" => "ALT/ZEN",
+            "greed" => "GREED",
+            _ => bidType.ToUpper()
         };
     }
 

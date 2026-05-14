@@ -40,11 +40,23 @@ public partial class AuctionDetail : ComponentBase, IAsyncDisposable
     private bool _copiedToClipboard = false;
     private int _browserUtcOffsetMinutes = 0;
     private bool _suppressUpdateToast = false;
+    private System.Threading.Timer? _countdownTimer;
 
     protected override async Task OnInitializedAsync()
     {
         NotificationService.AuctionUpdated += OnAuctionUpdated;
         await LoadData();
+        StartCountdownTimer();
+    }
+
+    private void StartCountdownTimer()
+    {
+        _countdownTimer?.Dispose();
+        _countdownTimer = new System.Threading.Timer(_ =>
+        {
+            if (_auction?.Status != "open") return;
+            InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
     }
 
     private void OnAuctionUpdated(Guid auctionId)
@@ -52,7 +64,15 @@ public partial class AuctionDetail : ComponentBase, IAsyncDisposable
         if (auctionId != AuctionId) return;
         InvokeAsync(async () =>
         {
+            var previousClosesAt = _auction?.ClosesAt;
             await LoadData(silent: true);
+            // Detect anti-snipe extension and toast it once
+            if (previousClosesAt.HasValue && _auction != null && _auction.ClosesAt > previousClosesAt.Value)
+            {
+                var extraSeconds = (int)Math.Round((_auction.ClosesAt - previousClosesAt.Value).TotalSeconds);
+                ToastService.Show($"Auction extended by {extraSeconds}s (anti-snipe)", ToastType.Warning);
+                _suppressUpdateToast = true;
+            }
             if (!_suppressUpdateToast)
                 ToastService.Show("Bids updated", ToastType.Info);
             _suppressUpdateToast = false;
@@ -63,7 +83,26 @@ public partial class AuctionDetail : ComponentBase, IAsyncDisposable
     public ValueTask DisposeAsync()
     {
         NotificationService.AuctionUpdated -= OnAuctionUpdated;
+        _countdownTimer?.Dispose();
         return ValueTask.CompletedTask;
+    }
+
+    private string FormatCountdown(DateTime closesAtUtc)
+    {
+        var remaining = closesAtUtc - DateTime.UtcNow;
+        if (remaining.TotalSeconds <= 0) return "00:00";
+        if (remaining.TotalHours >= 1)
+            return $"{(int)remaining.TotalHours:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+        return $"{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+    }
+
+    private string GetCountdownCssClass(DateTime closesAtUtc)
+    {
+        var seconds = (closesAtUtc - DateTime.UtcNow).TotalSeconds;
+        if (seconds <= 0) return "text-danger fw-bold";
+        if (seconds < 60) return "text-danger fw-bold";
+        if (seconds < 300) return "text-warning fw-bold";
+        return "text-success";
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -197,6 +236,74 @@ public partial class AuctionDetail : ComponentBase, IAsyncDisposable
         {
             _isProcessing = false;
         }
+    }
+
+    private int GetFloorForItem(Guid itemId)
+    {
+        var top = _itemBids.GetValueOrDefault(itemId)?.FirstOrDefault();
+        if (top != null) return top.Bid.Amount;
+        var item = _items.FirstOrDefault(i => i.Id == itemId);
+        return item?.MinimumBid ?? 0;
+    }
+
+    private int CalcIncrement(int floor, double pct)
+        => floor + (int)Math.Ceiling(floor * pct);
+
+    private int GetAvailableDkpForItem(Guid itemId)
+    {
+        if (_currentUser == null) return 0;
+        var ownBid = _userBids.GetValueOrDefault(itemId)?.Amount ?? 0;
+        return _currentUser.DkpBalance - _totalActiveBids + ownBid;
+    }
+
+    private bool IsUserWinning(Guid itemId)
+    {
+        if (_currentUser == null) return false;
+        var top = _itemBids.GetValueOrDefault(itemId)?.FirstOrDefault();
+        return top != null && top.Bid.UserId == _currentUser.Id;
+    }
+
+    private AuctionBid? GetTopOtherBid(Guid itemId)
+    {
+        if (_currentUser == null) return _itemBids.GetValueOrDefault(itemId)?.FirstOrDefault()?.Bid;
+        return _itemBids.GetValueOrDefault(itemId)
+            ?.FirstOrDefault(b => b.Bid.UserId != _currentUser.Id)?.Bid;
+    }
+
+    private static int BidTypePriority(string bidType) => bidType.ToLower() switch
+    {
+        "main" => 1,
+        "collection" => 2,
+        "alt" => 3,
+        "greed" => 4,
+        _ => 5
+    };
+
+    private List<string> GetAllowedBidTypes(Guid itemId)
+    {
+        var topOther = GetTopOtherBid(itemId);
+        var all = new[] { "main", "collection", "alt", "greed" };
+        if (topOther == null) return all.ToList();
+        var maxPriority = BidTypePriority(topOther.BidType);
+        return all.Where(t => BidTypePriority(t) <= maxPriority).ToList();
+    }
+
+    private async Task BidPlus15(Guid itemId)
+    {
+        _bidAmounts[itemId] = CalcIncrement(GetFloorForItem(itemId), 0.15);
+        await PlaceBid(itemId);
+    }
+
+    private async Task BidPlus30(Guid itemId)
+    {
+        _bidAmounts[itemId] = CalcIncrement(GetFloorForItem(itemId), 0.30);
+        await PlaceBid(itemId);
+    }
+
+    private async Task BidAllIn(Guid itemId)
+    {
+        _bidAmounts[itemId] = GetAvailableDkpForItem(itemId);
+        await PlaceBid(itemId);
     }
 
     private async Task RetractBid(Guid itemId)
