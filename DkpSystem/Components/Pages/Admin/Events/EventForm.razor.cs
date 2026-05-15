@@ -60,7 +60,9 @@ public partial class EventForm : ComponentBase
             return;
         }
 
-        guildMembers = await EventService.GetActiveGuildMembersAsync(currentGuildId);
+        guildMembers = (await EventService.GetActiveGuildMembersAsync(currentGuildId))
+            .OrderBy(m => m.Username, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         // Pre-select all members by default
         selectedAttendees = guildMembers.Select(m => m.Id).ToHashSet();
@@ -68,7 +70,9 @@ public partial class EventForm : ComponentBase
 
     private async Task LoadAllActiveMembersAsync()
     {
-        guildMembers = await EventService.GetAllActiveMembersAsync();
+        guildMembers = (await EventService.GetAllActiveMembersAsync())
+            .OrderBy(m => m.Username, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         // Pre-select all members by default
         selectedAttendees = guildMembers.Select(m => m.Id).ToHashSet();
