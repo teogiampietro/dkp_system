@@ -267,14 +267,17 @@ public class AuctionService : IAuctionService
                 return (false, $"You can't bid {GetBidTypeLabel(bidTypeLower)} because the current winning bid is {GetBidTypeLabel(topOtherBid.BidType)}. Match or beat that priority.");
             }
 
-            // Enforce minimum increment: at least +15% over the current high bid,
-            // OR an exact all-in (user's full available DKP, when that beats the floor).
-            var floor = topOtherBid.Amount;
-            var minAmount = floor + (int)Math.Ceiling(floor * 0.15);
-            var isAllIn = amount == available && available > floor;
-            if (amount < minAmount && !isAllIn)
+            // The +15% increment only applies when bidding at the same tier as the current top bid.
+            // A higher-tier bid wins by priority, so lower-tier amounts don't set a floor.
+            if (GetBidTypePriority(bidTypeLower) == GetBidTypePriority(topOtherBid.BidType))
             {
-                return (false, $"Minimum bid is {minAmount} DKP (15% over current {floor}). Use 'All In' to bid your full {available} DKP.");
+                var floor = topOtherBid.Amount;
+                var minAmount = floor + (int)Math.Ceiling(floor * 0.15);
+                var isAllIn = amount == available && available > floor;
+                if (amount < minAmount && !isAllIn)
+                {
+                    return (false, $"Minimum bid is {minAmount} DKP (15% over current {floor}). Use 'All In' to bid your full {available} DKP.");
+                }
             }
         }
         // First bid on the item (no other-user bid yet): any amount >= item.MinimumBid is valid
